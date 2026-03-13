@@ -1,0 +1,641 @@
+export default async function(ctx) {
+
+  /* =========================================================
+     ENVIRONMENT VARIABLES
+     ========================================================= */
+
+  // API endpoint for typhoon data
+  const API_URL = ctx.env.API_URL || '';
+
+  // Tap widget to open a detailed weather page
+  const OPEN_URL = ctx.env.OPEN_URL || '';
+
+  // Small top label
+  const WIDGET_TITLE = ctx.env.WIDGET_TITLE || 'MISSION CYCLONE';
+
+  // Secondary label under title
+  const WIDGET_SUBTITLE = ctx.env.WIDGET_SUBTITLE || 'Orbital Weather Desk';
+
+
+
+  /* =========================================================
+     DESIGN SYSTEM
+     NASA-inspired, but arranged with iOS information hierarchy:
+     - Level 1: system title / storm name
+     - Level 2: warning / intensity
+     - Level 3: key metrics
+     - Level 4: route / update / support info
+     ========================================================= */
+
+  function getPalette(level) {
+    const key = String(level || '').toLowerCase();
+
+    const palettes = {
+      blue: {
+        bgTop: '#07111B',
+        bgBottom: '#0B2238',
+        card: 'rgba(255,255,255,0.07)',
+        line: 'rgba(255,255,255,0.10)',
+        title: '#F5F9FF',
+        primary: '#DDEBFF',
+        secondary: '#8FAECC',
+        accent: '#65B7FF',
+        warning: '#65B7FF',
+        route: '#A9D6FF'
+      },
+      yellow: {
+        bgTop: '#11140F',
+        bgBottom: '#30260D',
+        card: 'rgba(255,255,255,0.07)',
+        line: 'rgba(255,255,255,0.10)',
+        title: '#FFFBEF',
+        primary: '#FFF4CC',
+        secondary: '#D5C287',
+        accent: '#FFD85A',
+        warning: '#FFD85A',
+        route: '#FFE9A2'
+      },
+      orange: {
+        bgTop: '#17100B',
+        bgBottom: '#3A1F0D',
+        card: 'rgba(255,255,255,0.07)',
+        line: 'rgba(255,255,255,0.10)',
+        title: '#FFF6F0',
+        primary: '#FFE1CB',
+        secondary: '#D5A888',
+        accent: '#FF9A4A',
+        warning: '#FF9A4A',
+        route: '#FFC49A'
+      },
+      red: {
+        bgTop: '#170B10',
+        bgBottom: '#3A0F18',
+        card: 'rgba(255,255,255,0.07)',
+        line: 'rgba(255,255,255,0.10)',
+        title: '#FFF4F6',
+        primary: '#FFD8DE',
+        secondary: '#D0A0AB',
+        accent: '#FF6E82',
+        warning: '#FF6E82',
+        route: '#FFB6C1'
+      },
+      gray: {
+        bgTop: '#0C1117',
+        bgBottom: '#1B2632',
+        card: 'rgba(255,255,255,0.07)',
+        line: 'rgba(255,255,255,0.10)',
+        title: '#F4F7FB',
+        primary: '#DCE5EF',
+        secondary: '#98A7B8',
+        accent: '#8FB3D9',
+        warning: '#8FB3D9',
+        route: '#B7CDE3'
+      }
+    };
+
+    return palettes[key] || palettes.gray;
+  }
+
+
+
+  /* =========================================================
+     DATA HELPERS
+     ========================================================= */
+
+  function textOr(v, fallback = '--') {
+    return (v === 0 || v) ? String(v) : fallback;
+  }
+
+  function metricValue(v, unit = '') {
+    if (v === 0 || v) return `${v}${unit}`;
+    return '--';
+  }
+
+  function formatRouteCompact(route, limit) {
+    if (!Array.isArray(route) || route.length === 0) return 'No forecast route';
+    return route.slice(0, limit).map(item => item.label || '?').join(' → ');
+  }
+
+  function formatLastUpdated(value) {
+    if (!value) return '--';
+    return String(value).replace('T', ' ').replace('Z', ' UTC');
+  }
+
+
+
+  /* =========================================================
+     SMALL COMPONENTS
+     Keep visual rhythm stable and avoid clutter
+     ========================================================= */
+
+  function warningPill(text, palette) {
+    return {
+      type: 'stack',
+      padding: [4, 9, 4, 9],
+      backgroundColor: palette.card,
+      borderRadius: 999,
+      children: [
+        {
+          type: 'text',
+          text,
+          font: { size: 'caption2', weight: 'bold', family: 'Menlo' },
+          textColor: palette.warning,
+          maxLines: 1,
+          minScale: 0.7
+        }
+      ]
+    };
+  }
+
+  function metricBlock(label, value, palette) {
+    return {
+      type: 'stack',
+      flex: 1,
+      gap: 3,
+      children: [
+        {
+          type: 'text',
+          text: label,
+          font: { size: 'caption2', weight: 'medium' },
+          textColor: palette.secondary,
+          maxLines: 1,
+          minScale: 0.7
+        },
+        {
+          type: 'text',
+          text: value,
+          font: { size: 'body', weight: 'bold', family: 'Menlo' },
+          textColor: palette.primary,
+          maxLines: 1,
+          minScale: 0.7
+        }
+      ]
+    };
+  }
+
+  function sectionCard(children, palette) {
+    return {
+      type: 'stack',
+      padding: [10, 12, 10, 12],
+      gap: 6,
+      backgroundColor: palette.card,
+      borderRadius: 14,
+      children
+    };
+  }
+
+
+
+  /* =========================================================
+     FETCH DATA
+     Required JSON structure:
+     {
+       "storm": {
+         "name": "...",
+         "intensity": "...",
+         "pressure_hpa": 935,
+         "wind_kts": 95,
+         "movement": "NW 18 km/h",
+         "location_text": "18.6N, 122.4E"
+       },
+       "warnings": {
+         "level": "blue|yellow|orange|red",
+         "title": "Typhoon Warning",
+         "areas": ["Area A", "Area B"]
+       },
+       "observed": {
+         "gust_ms": 42.5,
+         "rain_mm_24h": 186
+       },
+       "route": [
+         {"label":"Now","lat":18.6,"lon":122.4},
+         {"label":"+24h","lat":19.8,"lon":120.9},
+         {"label":"+48h","lat":21.1,"lon":119.1}
+       ],
+       "updated_at": "2026-03-13T09:00:00Z"
+     }
+     ========================================================= */
+
+  let data = null;
+  let error = null;
+
+  try {
+    if (!API_URL) throw new Error('Missing API_URL');
+    const resp = await ctx.http.get(API_URL, {
+      timeout: 10000,
+      redirect: 'follow'
+    });
+    data = await resp.json();
+  } catch (e) {
+    error = String(e && e.message ? e.message : e);
+  }
+
+
+
+  /* =========================================================
+     FALLBACK UI
+     ========================================================= */
+
+  if (!data || error) {
+    const palette = getPalette('gray');
+
+    if (ctx.widgetFamily === 'accessoryInline') {
+      return {
+        type: 'widget',
+        url: OPEN_URL,
+        children: [
+          {
+            type: 'text',
+            text: 'Cyclone feed unavailable',
+            font: { size: 'caption2', weight: 'semibold' },
+            textColor: palette.accent,
+            maxLines: 1,
+            minScale: 0.7
+          }
+        ]
+      };
+    }
+
+    return {
+      type: 'widget',
+      url: OPEN_URL,
+      padding: 14,
+      gap: 6,
+      backgroundGradient: {
+        type: 'linear',
+        colors: [palette.bgTop, palette.bgBottom],
+        startPoint: { x: 0, y: 0 },
+        endPoint: { x: 1, y: 1 }
+      },
+      children: [
+        {
+          type: 'text',
+          text: WIDGET_TITLE,
+          font: { size: 'caption1', weight: 'bold' },
+          textColor: palette.secondary,
+          maxLines: 1
+        },
+        {
+          type: 'text',
+          text: 'No live cyclone data',
+          font: { size: 'headline', weight: 'bold' },
+          textColor: palette.title,
+          maxLines: 1,
+          minScale: 0.7
+        },
+        {
+          type: 'text',
+          text: error || 'Unknown error',
+          font: { size: 'caption2', weight: 'medium' },
+          textColor: palette.secondary,
+          maxLines: 2,
+          minScale: 0.7
+        }
+      ],
+      refreshAfter: new Date(Date.now() + 10 * 60 * 1000).toISOString()
+    };
+  }
+
+
+
+  /* =========================================================
+     DATA MAPPING
+     ========================================================= */
+
+  const storm = data.storm || {};
+  const warnings = data.warnings || {};
+  const observed = data.observed || {};
+  const route = Array.isArray(data.route) ? data.route : [];
+  const palette = getPalette(warnings.level);
+
+  const stormName = textOr(storm.name, 'Unnamed System');
+  const intensity = textOr(storm.intensity, 'Tropical Cyclone');
+  const pressure = metricValue(storm.pressure_hpa, ' hPa');
+  const wind = metricValue(storm.wind_kts, ' kt');
+  const gust = metricValue(observed.gust_ms, ' m/s');
+  const rain = metricValue(observed.rain_mm_24h, ' mm');
+  const movement = textOr(storm.movement, '--');
+  const location = textOr(storm.location_text, '--');
+  const warningTitle = textOr(warnings.title, 'No warning');
+  const warningAreas = Array.isArray(warnings.areas) && warnings.areas.length
+    ? warnings.areas.join(' · ')
+    : '--';
+  const routeCompact = formatRouteCompact(route, 5);
+  const updatedAt = formatLastUpdated(data.updated_at);
+
+
+
+  /* =========================================================
+     INLINE
+     ========================================================= */
+
+  if (ctx.widgetFamily === 'accessoryInline') {
+    return {
+      type: 'widget',
+      url: OPEN_URL,
+      children: [
+        {
+          type: 'text',
+          text: `${stormName} ${warningTitle}`,
+          font: { size: 'caption2', weight: 'semibold' },
+          textColor: palette.accent,
+          maxLines: 1,
+          minScale: 0.6
+        }
+      ]
+    };
+  }
+
+
+
+  /* =========================================================
+     RECTANGULAR
+     Minimal, glance-first
+     ========================================================= */
+
+  if (ctx.widgetFamily === 'accessoryRectangular') {
+    return {
+      type: 'widget',
+      url: OPEN_URL,
+      padding: 10,
+      gap: 5,
+      backgroundGradient: {
+        type: 'linear',
+        colors: [palette.bgTop, palette.bgBottom],
+        startPoint: { x: 0, y: 0 },
+        endPoint: { x: 1, y: 1 }
+      },
+      children: [
+        {
+          type: 'stack',
+          direction: 'row',
+          children: [
+            {
+              type: 'text',
+              text: stormName,
+              font: { size: 'caption1', weight: 'bold' },
+              textColor: palette.title,
+              maxLines: 1,
+              minScale: 0.7
+            },
+            { type: 'spacer' },
+            warningPill(String(warnings.level || 'gray').toUpperCase(), palette)
+          ]
+        },
+        {
+          type: 'text',
+          text: `${intensity} · ${wind} · ${pressure}`,
+          font: { size: 'caption2', weight: 'medium' },
+          textColor: palette.primary,
+          maxLines: 1,
+          minScale: 0.6
+        },
+        {
+          type: 'text',
+          text: routeCompact,
+          font: { size: 'caption2', weight: 'medium', family: 'Menlo' },
+          textColor: palette.route,
+          maxLines: 2,
+          minScale: 0.55
+        }
+      ],
+      refreshAfter: new Date(Date.now() + 30 * 60 * 1000).toISOString()
+    };
+  }
+
+
+
+  /* =========================================================
+     SMALL
+     One focal point + one support line + one route block
+     Avoid packing too much information
+     ========================================================= */
+
+  if (ctx.widgetFamily === 'systemSmall') {
+    return {
+      type: 'widget',
+      url: OPEN_URL,
+      padding: 14,
+      gap: 8,
+      backgroundGradient: {
+        type: 'linear',
+        colors: [palette.bgTop, palette.bgBottom],
+        startPoint: { x: 0, y: 0 },
+        endPoint: { x: 1, y: 1 }
+      },
+      children: [
+        {
+          type: 'stack',
+          direction: 'row',
+          children: [
+            {
+              type: 'stack',
+              flex: 1,
+              gap: 2,
+              children: [
+                {
+                  type: 'text',
+                  text: WIDGET_TITLE,
+                  font: { size: 'caption2', weight: 'bold' },
+                  textColor: palette.secondary,
+                  maxLines: 1
+                },
+                {
+                  type: 'text',
+                  text: stormName,
+                  font: { size: 'headline', weight: 'bold' },
+                  textColor: palette.title,
+                  maxLines: 1,
+                  minScale: 0.7
+                }
+              ]
+            },
+            warningPill(String(warnings.level || 'gray').toUpperCase(), palette)
+          ]
+        },
+        {
+          type: 'text',
+          text: warningTitle,
+          font: { size: 'caption1', weight: 'semibold' },
+          textColor: palette.accent,
+          maxLines: 1,
+          minScale: 0.7
+        },
+        {
+          type: 'text',
+          text: `${wind} · ${pressure}`,
+          font: { size: 'body', weight: 'bold', family: 'Menlo' },
+          textColor: palette.primary,
+          maxLines: 1,
+          minScale: 0.7
+        },
+        {
+          type: 'text',
+          text: routeCompact,
+          font: { size: 'caption2', weight: 'medium', family: 'Menlo' },
+          textColor: palette.route,
+          maxLines: 3,
+          minScale: 0.55
+        }
+      ],
+      refreshAfter: new Date(Date.now() + 30 * 60 * 1000).toISOString()
+    };
+  }
+
+
+
+  /* =========================================================
+     MEDIUM / DEFAULT
+     iOS-style content logic:
+     top    = identity
+     middle = primary status + key metrics
+     bottom = route + support info
+     Each section has one clear purpose
+     ========================================================= */
+
+  return {
+    type: 'widget',
+    url: OPEN_URL,
+    padding: 16,
+    gap: 10,
+    backgroundGradient: {
+      type: 'linear',
+      colors: [palette.bgTop, palette.bgBottom],
+      startPoint: { x: 0, y: 0 },
+      endPoint: { x: 1, y: 1 }
+    },
+    children: [
+
+      /* ================================
+         TOP HEADER
+         Small system label + storm name + warning badge
+         ================================ */
+      {
+        type: 'stack',
+        direction: 'row',
+        alignItems: 'center',
+        children: [
+          {
+            type: 'stack',
+            flex: 1,
+            gap: 2,
+            children: [
+              {
+                type: 'text',
+                text: WIDGET_TITLE,
+                font: { size: 'caption2', weight: 'bold' },
+                textColor: palette.secondary,
+                maxLines: 1
+              },
+              {
+                type: 'text',
+                text: stormName,
+                font: { size: 'title3', weight: 'bold' },
+                textColor: palette.title,
+                maxLines: 1,
+                minScale: 0.75
+              }
+            ]
+          },
+          warningPill(String(warnings.level || 'gray').toUpperCase(), palette)
+        ]
+      },
+
+      /* ================================
+         STATUS LINE
+         One concise status sentence
+         ================================ */
+      {
+        type: 'text',
+        text: `${intensity} · ${warningTitle}`,
+        font: { size: 'body', weight: 'semibold' },
+        textColor: palette.accent,
+        maxLines: 1,
+        minScale: 0.7
+      },
+
+      /* ================================
+         LOCATION + MOVEMENT
+         Supporting information, intentionally lighter
+         ================================ */
+      {
+        type: 'text',
+        text: `${location} · ${movement}`,
+        font: { size: 'caption1', weight: 'medium', family: 'Menlo' },
+        textColor: palette.secondary,
+        maxLines: 1,
+        minScale: 0.65
+      },
+
+      /* ================================
+         METRICS ROW
+         Only four essential metrics
+         ================================ */
+      {
+        type: 'stack',
+        direction: 'row',
+        gap: 10,
+        children: [
+          metricBlock('Wind', wind, palette),
+          metricBlock('Pressure', pressure, palette),
+          metricBlock('Gust', gust, palette),
+          metricBlock('Rain 24h', rain, palette)
+        ]
+      },
+
+      /* ================================
+         FORECAST ROUTE CARD
+         Route first as compact timeline, not over-dense coordinates
+         ================================ */
+      ,
+      sectionCard([
+        {
+          type: 'text',
+          text: 'Forecast Route',
+          font: { size: 'caption1', weight: 'bold' },
+          textColor: palette.primary,
+          maxLines: 1
+        },
+        {
+          type: 'text',
+          text: routeCompact,
+          font: { size: 'caption2', weight: 'medium', family: 'Menlo' },
+          textColor: palette.route,
+          maxLines: 2,
+          minScale: 0.55
+        }
+      ], palette),
+
+      /* ================================
+         FOOTER
+         Low-contrast support info
+         ================================ */
+      {
+        type: 'stack',
+        direction: 'row',
+        children: [
+          {
+            type: 'text',
+            text: warningAreas,
+            font: { size: 'caption2', weight: 'medium' },
+            textColor: palette.secondary,
+            maxLines: 1,
+            minScale: 0.55
+          },
+          { type: 'spacer' },
+          {
+            type: 'text',
+            text: updatedAt,
+            font: { size: 'caption2', weight: 'medium', family: 'Menlo' },
+            textColor: palette.secondary,
+            maxLines: 1,
+            minScale: 0.55
+          }
+        ]
+      }
+    ],
+
+    // refresh every 30 minutes
+    refreshAfter: new Date(Date.now() + 30 * 60 * 1000).toISOString()
+  };
+}
