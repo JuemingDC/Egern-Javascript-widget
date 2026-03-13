@@ -1,0 +1,490 @@
+// 国际热点新闻小组件
+//
+// 数据源：Google News RSS（World）
+// 说明：无需 API Key
+//
+// 环境变量：
+//   TITLE         - 组件标题，默认 "国际热点"
+//   FEED_URL      - RSS 地址，默认 Google News World
+//   MAX_ITEMS     - 显示条数，默认 3，最大 4，建议 3
+//   REFRESH_MIN   - 刷新间隔（分钟），默认 30
+//   OPEN_LINK     - 点击组件跳转链接，可选
+//
+// 默认 RSS：
+// https://news.google.com/rss?hl=zh-CN&gl=CN&ceid=CN:zh-Hans
+//
+// 如果你想更偏“国际/世界”而不是综合头条，建议后续把 FEED_URL
+// 换成你常用区域的 Google News World 主题 RSS 或你自己的新闻源。
+
+export default async function (ctx) {
+  const TITLE = (ctx.env.TITLE || "国际热点").trim();
+  const FEED_URL = (ctx.env.FEED_URL || "https://news.google.com/rss?hl=zh-CN&gl=CN&ceid=CN:zh-Hans").trim();
+  const MAX_ITEMS = clampInt(ctx.env.MAX_ITEMS, 3, 1, 4);
+  const REFRESH_MIN = clampInt(ctx.env.REFRESH_MIN, 30, 5, 180);
+  const OPEN_LINK = (ctx.env.OPEN_LINK || "").trim();
+
+  const items = await fetchNews(ctx, FEED_URL);
+  const news = items.slice(0, MAX_ITEMS);
+
+  if (!news.length) {
+    return errorWidget("未获取到新闻内容。");
+  }
+
+  const lead = news[0];
+  const rest = news.slice(1);
+
+  if (ctx.widgetFamily === "accessoryInline") {
+    return {
+      type: "widget",
+      url: OPEN_LINK || lead.link || FEED_URL,
+      refreshAfter: nextRefreshISO(REFRESH_MIN),
+      children: [
+        {
+          type: "text",
+          text: truncateInline(lead.title, 24),
+          font: { size: "caption2", weight: "medium" },
+          textColor: color("#111827", "#FFFFFF"),
+          maxLines: 1,
+        },
+      ],
+    };
+  }
+
+  if (ctx.widgetFamily === "accessoryCircular") {
+    return {
+      type: "widget",
+      url: OPEN_LINK || lead.link || FEED_URL,
+      refreshAfter: nextRefreshISO(REFRESH_MIN),
+      padding: 8,
+      backgroundGradient: bgGradient(),
+      children: [
+        {
+          type: "stack",
+          direction: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 2,
+          children: [
+            {
+              type: "image",
+              src: "sf-symbol:newspaper.fill",
+              width: 14,
+              height: 14,
+              color: "#9FD4FF",
+            },
+            {
+              type: "text",
+              text: "热点",
+              font: { size: "caption2", weight: "bold" },
+              textColor: "#EAF4FF",
+              maxLines: 1,
+            },
+            {
+              type: "text",
+              text: `${news.length} 条`,
+              font: { size: "caption2", weight: "medium" },
+              textColor: "#8EA2BD",
+              maxLines: 1,
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  if (ctx.widgetFamily === "accessoryRectangular") {
+    return {
+      type: "widget",
+      url: OPEN_LINK || lead.link || FEED_URL,
+      refreshAfter: nextRefreshISO(REFRESH_MIN),
+      padding: 10,
+      gap: 6,
+      backgroundGradient: bgGradient(),
+      children: [
+        buildHeader(TITLE, news.length),
+        {
+          type: "text",
+          text: lead.title,
+          font: { size: "caption1", weight: "bold" },
+          textColor: "#EAF4FF",
+          maxLines: 2,
+          minScale: 0.72,
+        },
+        {
+          type: "text",
+          text: compactMeta(lead.source, lead.relativeTime),
+          font: { size: "caption2", weight: "medium" },
+          textColor: "#8EA2BD",
+          maxLines: 1,
+          minScale: 0.75,
+        },
+      ],
+    };
+  }
+
+  return {
+    type: "widget",
+    url: OPEN_LINK || lead.link || FEED_URL,
+    refreshAfter: nextRefreshISO(REFRESH_MIN),
+    padding: [18, 18, 16, 18],
+    gap: 12,
+    backgroundGradient: bgGradient(),
+    children: [
+      buildHeader(TITLE, news.length),
+
+      // 主新闻
+      {
+        type: "stack",
+        direction: "column",
+        gap: 6,
+        padding: [0, 0, 2, 0],
+        children: [
+          {
+            type: "text",
+            text: lead.title,
+            font: { size: 19, weight: "bold" },
+            textColor: "#F5FAFF",
+            maxLines: 2,
+            minScale: 0.78,
+          },
+          {
+            type: "stack",
+            direction: "row",
+            alignItems: "center",
+            gap: 8,
+            children: [
+              pill(lead.source || "Google News", "#9FD4FF"),
+              {
+                type: "text",
+                text: lead.relativeTime || "",
+                font: { size: "caption2", weight: "medium" },
+                textColor: "#7F93AE",
+                maxLines: 1,
+              },
+            ],
+          },
+        ],
+      },
+
+      {
+        type: "stack",
+        direction: "row",
+        height: 1,
+        backgroundColor: "rgba(255,255,255,0.06)",
+        borderRadius: 99,
+        children: [],
+      },
+
+      // 次新闻列表
+      {
+        type: "stack",
+        direction: "column",
+        gap: 9,
+        children: rest.map((item, i) => buildNewsRow(item, i, rest.length)),
+      },
+    ],
+  };
+}
+
+function buildHeader(title, count) {
+  return {
+    type: "stack",
+    direction: "row",
+    alignItems: "center",
+    children: [
+      {
+        type: "stack",
+        direction: "row",
+        alignItems: "center",
+        gap: 7,
+        children: [
+          {
+            type: "image",
+            src: "sf-symbol:newspaper.fill",
+            width: 14,
+            height: 14,
+            color: "#9FD4FF",
+          },
+          {
+            type: "text",
+            text: title,
+            font: { size: "headline", weight: "bold" },
+            textColor: "#EAF4FF",
+            maxLines: 1,
+          },
+        ],
+      },
+      { type: "spacer" },
+      {
+        type: "text",
+        text: `${count} 条`,
+        font: { size: "caption2", weight: "medium" },
+        textColor: "#72849D",
+        maxLines: 1,
+      },
+    ],
+  };
+}
+
+function buildNewsRow(item, index, total) {
+  const isLast = index === total - 1;
+
+  return {
+    type: "stack",
+    direction: "column",
+    gap: 8,
+    children: [
+      {
+        type: "stack",
+        direction: "row",
+        alignItems: "start",
+        gap: 10,
+        children: [
+          {
+            type: "stack",
+            width: 6,
+            height: 6,
+            backgroundColor: "#5EAFFF",
+            borderRadius: "auto",
+            children: [],
+          },
+          {
+            type: "stack",
+            flex: 1,
+            direction: "column",
+            gap: 4,
+            children: [
+              {
+                type: "text",
+                text: item.title,
+                font: { size: 15, weight: "bold" },
+                textColor: "#EAF4FF",
+                maxLines: 2,
+                minScale: 0.78,
+              },
+              {
+                type: "text",
+                text: compactMeta(item.source, item.relativeTime),
+                font: { size: "caption2", weight: "medium" },
+                textColor: "#8EA2BD",
+                maxLines: 1,
+                minScale: 0.75,
+              },
+            ],
+          },
+        ],
+      },
+
+      ...(isLast
+        ? []
+        : [
+            {
+              type: "stack",
+              direction: "row",
+              height: 1,
+              backgroundColor: "rgba(255,255,255,0.05)",
+              borderRadius: 99,
+              children: [],
+            },
+          ]),
+    ],
+  };
+}
+
+async function fetchNews(ctx, feedUrl) {
+  try {
+    const resp = await ctx.http.get(feedUrl, {
+      timeout: 12000,
+      headers: {
+        Accept: "application/rss+xml, application/xml, text/xml, */*",
+        "User-Agent": "Mozilla/5.0",
+      },
+    });
+
+    const xml = await resp.text();
+    return parseRss(xml);
+  } catch (_) {
+    return [];
+  }
+}
+
+function parseRss(xml) {
+  const items = [];
+  const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+  let match;
+
+  while ((match = itemRegex.exec(xml)) !== null) {
+    const raw = match[1];
+
+    const title = decodeHtml(stripCdata(extractTag(raw, "title")));
+    const link = decodeHtml(stripCdata(extractTag(raw, "link")));
+    const pubDate = stripCdata(extractTag(raw, "pubDate"));
+    const source = decodeHtml(stripCdata(extractTag(raw, "source"))) || inferSourceFromTitle(title);
+
+    if (!title) continue;
+
+    items.push({
+      title: cleanTitle(title),
+      link,
+      source,
+      relativeTime: formatRelativeTime(pubDate),
+      pubDate,
+    });
+  }
+
+  return dedupeByTitle(items);
+}
+
+function extractTag(xml, tag) {
+  const regex = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i");
+  const m = xml.match(regex);
+  return m ? m[1].trim() : "";
+}
+
+function stripCdata(s) {
+  return String(s || "")
+    .replace(/^<!\[CDATA\[/, "")
+    .replace(/\]\]>$/, "")
+    .trim();
+}
+
+function cleanTitle(title) {
+  const parts = String(title || "").split(" - ");
+  if (parts.length >= 2) {
+    return parts.slice(0, -1).join(" - ").trim();
+  }
+  return title.trim();
+}
+
+function inferSourceFromTitle(title) {
+  const parts = String(title || "").split(" - ");
+  return parts.length >= 2 ? parts[parts.length - 1].trim() : "";
+}
+
+function decodeHtml(str) {
+  return String(str || "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, "\"")
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function dedupeByTitle(items) {
+  const seen = new Set();
+  const out = [];
+  for (const item of items) {
+    const key = item.title.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
+function formatRelativeTime(pubDate) {
+  const d = new Date(pubDate);
+  if (Number.isNaN(d.getTime())) return "";
+
+  const diffMs = Date.now() - d.getTime();
+  const mins = Math.floor(diffMs / 60000);
+  const hours = Math.floor(diffMs / 3600000);
+  const days = Math.floor(diffMs / 86400000);
+
+  if (mins < 60) return `${Math.max(mins, 1)} 分钟前`;
+  if (hours < 24) return `${hours} 小时前`;
+  return `${days} 天前`;
+}
+
+function compactMeta(source, time) {
+  if (source && time) return `${source} · ${time}`;
+  return source || time || "";
+}
+
+function pill(text, colorValue) {
+  return {
+    type: "stack",
+    padding: [3, 8, 3, 8],
+    backgroundColor: withAlpha(colorValue, 0.12),
+    borderRadius: 99,
+    children: [
+      {
+        type: "text",
+        text,
+        font: { size: "caption2", weight: "semibold" },
+        textColor: colorValue,
+        maxLines: 1,
+      },
+    ],
+  };
+}
+
+function truncateInline(text, maxLen) {
+  const s = String(text || "").trim();
+  return s.length > maxLen ? `${s.slice(0, maxLen - 1)}…` : s;
+}
+
+function bgGradient() {
+  return {
+    type: "linear",
+    colors: ["#08111A", "#0B1523", "#101B2C", "#162338"],
+    stops: [0, 0.34, 0.72, 1],
+    startPoint: { x: 0, y: 0 },
+    endPoint: { x: 1, y: 1 },
+  };
+}
+
+function withAlpha(hex, alpha) {
+  const h = String(hex || "").replace("#", "").trim();
+  if (h.length !== 6) return `rgba(255,255,255,${alpha})`;
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function nextRefreshISO(minutes) {
+  return new Date(Date.now() + minutes * 60000).toISOString();
+}
+
+function clampInt(v, fallback, min, max) {
+  const n = parseInt(v, 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+}
+
+function color(light, dark) {
+  return { light, dark };
+}
+
+function errorWidget(message) {
+  return {
+    type: "widget",
+    padding: 16,
+    backgroundGradient: {
+      type: "linear",
+      colors: ["#281414", "#351919", "#402020"],
+      stops: [0, 0.55, 1],
+      startPoint: { x: 0, y: 0 },
+      endPoint: { x: 1, y: 1 },
+    },
+    children: [
+      {
+        type: "text",
+        text: "国际热点",
+        font: { size: "headline", weight: "bold" },
+        textColor: "#FFFFFF",
+      },
+      {
+        type: "text",
+        text: message,
+        font: { size: "caption1", weight: "medium" },
+        textColor: "#FFB4A2",
+        maxLines: 2,
+      },
+    ],
+  };
+}
