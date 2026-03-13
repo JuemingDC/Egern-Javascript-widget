@@ -3,50 +3,33 @@ export default async function (ctx) {
      ENVIRONMENT VARIABLES
      ========================================================= */
 
-  // -----------------------------
-  // Main source: NMC typhoon site
-  // -----------------------------
+  // NMC base domain
   const NMC_BASE = ctx.env.NMC_BASE || "http://typhoon.nmc.cn";
 
-  // -----------------------------
-  // Optional fallback switches
-  // -----------------------------
-  const ENABLE_JMA_FALLBACK = String(ctx.env.ENABLE_JMA_FALLBACK || "false") === "true";
-  const ENABLE_JTWC_FALLBACK = String(ctx.env.ENABLE_JTWC_FALLBACK || "false") === "true";
-
-  // -----------------------------
-  // Optional fallback URLs
-  // -----------------------------
-  const JMA_XML_URL = ctx.env.JMA_XML_URL || "";
-  const JTWC_URL = ctx.env.JTWC_URL || "";
-
-  // -----------------------------
-  // Open pages
-  // -----------------------------
+  // Tap widget → open page
   const OPEN_URL = ctx.env.OPEN_URL || "https://typhoon.nmc.cn/web.html";
+
+  // Backup page
   const BACKUP_OPEN_URL = ctx.env.BACKUP_OPEN_URL || "https://typhoon.slt.zj.gov.cn/#/";
 
-  // -----------------------------
-  // Widget texts
-  // -----------------------------
+  // Widget title
   const WIDGET_TITLE = ctx.env.WIDGET_TITLE || "MISSION CYCLONE";
+
+  // Widget subtitle
   const WIDGET_SUBTITLE = ctx.env.WIDGET_SUBTITLE || "Typhoon Operations Desk";
 
-  // -----------------------------
-  // Display controls
-  // -----------------------------
+  // How many forecast nodes to display
   const ROUTE_LIMIT = Math.max(3, Math.min(8, Number(ctx.env.ROUTE_LIMIT || 5)));
 
 
 
   /* =========================================================
      DESIGN SYSTEM
-     NASA-ish color + iOS spacing logic
-     - one focal title
-     - one status line
-     - one metrics row
-     - one route card
-     - low-clutter footer
+     NASA-inspired dark palette
+     UI layout follows iOS logic:
+     top    = identity
+     middle = status + metrics
+     bottom = route + support info
      ========================================================= */
 
   function getPalette(level) {
@@ -57,7 +40,6 @@ export default async function (ctx) {
         bgTop: "#07111B",
         bgBottom: "#0B2238",
         card: "rgba(255,255,255,0.08)",
-        line: "rgba(255,255,255,0.10)",
         title: "#F5F9FF",
         primary: "#DDEBFF",
         secondary: "#8FAECC",
@@ -68,7 +50,6 @@ export default async function (ctx) {
         bgTop: "#151408",
         bgBottom: "#38300D",
         card: "rgba(255,255,255,0.08)",
-        line: "rgba(255,255,255,0.10)",
         title: "#FFFBE9",
         primary: "#FFF2BF",
         secondary: "#D7C37E",
@@ -79,7 +60,6 @@ export default async function (ctx) {
         bgTop: "#1A1008",
         bgBottom: "#46220D",
         card: "rgba(255,255,255,0.08)",
-        line: "rgba(255,255,255,0.10)",
         title: "#FFF6EF",
         primary: "#FFE0CA",
         secondary: "#D6A583",
@@ -90,7 +70,6 @@ export default async function (ctx) {
         bgTop: "#180A10",
         bgBottom: "#44111B",
         card: "rgba(255,255,255,0.08)",
-        line: "rgba(255,255,255,0.10)",
         title: "#FFF4F7",
         primary: "#FFD9E1",
         secondary: "#D3A1AC",
@@ -101,7 +80,6 @@ export default async function (ctx) {
         bgTop: "#0C1117",
         bgBottom: "#1B2632",
         card: "rgba(255,255,255,0.08)",
-        line: "rgba(255,255,255,0.10)",
         title: "#F4F7FB",
         primary: "#DCE5EF",
         secondary: "#98A7B8",
@@ -118,7 +96,11 @@ export default async function (ctx) {
   }
 
   function safeNum(v) {
-    return v === 0 || v ? Number(v) : null;
+    if (v === 0 || v) {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    }
+    return null;
   }
 
   function metric(v, unit = "") {
@@ -128,7 +110,6 @@ export default async function (ctx) {
   function toWarningLevelByIntensity(typeText) {
     const t = String(typeText || "").toUpperCase();
 
-    // NMC 常见等级：TD / TS / STS / TY / STY / SUPER TY
     if (t.includes("SUPER")) return "red";
     if (t.includes("STY")) return "red";
     if (t.includes("TY")) return "orange";
@@ -138,14 +119,14 @@ export default async function (ctx) {
     return "gray";
   }
 
-  function formatUpdated(value) {
-    if (!value) return "--";
-    return String(value).replace("T", " ").replace("Z", " UTC");
-  }
-
   function formatCoord(lat, lon) {
     if (lat == null || lon == null) return "--";
     return `${lat}°N ${lon}°E`;
+  }
+
+  function formatUpdated(value) {
+    if (!value) return "--";
+    return String(value).replace("T", " ").replace("Z", " UTC");
   }
 
   function compactRouteText(points, limit) {
@@ -215,148 +196,160 @@ export default async function (ctx) {
      NETWORK HELPERS
      ========================================================= */
 
-  // ---------------------------------------------------------
-  // Fetch JSONP or plain JSON
-  // NMC uses JSONP-like payloads in many typhoon endpoints
-  // ---------------------------------------------------------
+  // Parse NMC JSONP or JSON
   async function fetchJSONP(url) {
-    const resp = await ctx.http.get(url, { timeout: 10000, redirect: "follow" });
+    const resp = await ctx.http.get(url, {
+      timeout: 10000,
+      redirect: "follow",
+    });
+
     const text = await resp.text();
 
-    // Try standard JSON directly
+    // 1) direct JSON
     try {
       return JSON.parse(text);
     } catch (_) {}
 
-    // Try JSONP callback(...)
-    const matchObj = text.match(/\{[\s\S]*\}$/);
-    if (matchObj) {
+    // 2) callback({...})
+    const m1 = text.match(/^[^(]*\(([\s\S]*)\)\s*;?\s*$/);
+    if (m1) {
       try {
-        return JSON.parse(matchObj[0]);
+        return JSON.parse(m1[1]);
       } catch (_) {}
     }
 
-    const matchCall = text.match(/^[^(]*\(([\s\S]*)\)\s*;?\s*$/);
-    if (matchCall) {
+    // 3) extract first JSON object defensively
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    if (start !== -1 && end !== -1 && end > start) {
       try {
-        return JSON.parse(matchCall[1]);
+        return JSON.parse(text.slice(start, end + 1));
       } catch (_) {}
     }
 
-    throw new Error("Unable to parse JSON/JSONP");
-  }
-
-  // ---------------------------------------------------------
-  // Fetch plain text
-  // ---------------------------------------------------------
-  async function fetchText(url) {
-    const resp = await ctx.http.get(url, { timeout: 10000, redirect: "follow" });
-    return await resp.text();
+    throw new Error("JSONP parse failed");
   }
 
 
 
   /* =========================================================
-     PRIMARY SOURCE: NMC
-     Verified working structure:
-     - list_default
-     - view_{id}
+     NMC DATA FETCH
+     Important fix:
+     callback parameter is explicitly added
      ========================================================= */
 
   async function fetchFromNMC() {
     const ts = Date.now();
 
-    // -------------------------------------------------------
-    // Active list endpoint
-    // -------------------------------------------------------
-    const listURL = `${NMC_BASE}/weatherservice/typhoon/jsons/list_default?t=${ts}`;
+    // -----------------------------
+    // list endpoint with callback
+    // -----------------------------
+    const listCallback = "typhoon_jsons_list_default";
+    const listURL =
+      `${NMC_BASE}/weatherservice/typhoon/jsons/list_default?t=${ts}&callback=${listCallback}`;
+
     const listData = await fetchJSONP(listURL);
 
     if (!listData || !Array.isArray(listData.typhoonList)) {
-      throw new Error("NMC list_default invalid");
+      throw new Error("NMC typhoon list invalid");
     }
 
     const list = listData.typhoonList;
 
-    // -------------------------------------------------------
-    // Prefer active storms
-    // Common observed pattern:
-    // item[7] often indicates lifecycle like "start"
-    // fallback to first item if needed
-    // -------------------------------------------------------
+    // Prefer active storms marked as start
     let active = list.find(item => String(item[7] || "").toLowerCase() === "start");
-    if (!active && list.length > 0) active = list[0];
-    if (!active) throw new Error("No typhoon item from NMC");
 
-    // -------------------------------------------------------
-    // Usually:
-    // item[0] = storm id
-    // item[2] = English or display name
-    // -------------------------------------------------------
+    // fallback: first item
+    if (!active && list.length > 0) active = list[0];
+
+    if (!active) throw new Error("No typhoon in NMC list");
+
+    // Common community parsing:
+    // [0] id, [1]/[2] name fields, [7] state
     const stormId = active[0];
     const stormName = active[2] || active[1] || "Unnamed System";
 
-    const detailURL = `${NMC_BASE}/weatherservice/typhoon/jsons/view_${stormId}?t=${ts}`;
+    // -----------------------------
+    // detail endpoint with callback
+    // -----------------------------
+    const viewCallback = `typhoon_jsons_view_${stormId}`;
+    const detailURL =
+      `${NMC_BASE}/weatherservice/typhoon/jsons/view_${stormId}?t=${ts}&callback=${viewCallback}`;
+
     const detail = await fetchJSONP(detailURL);
 
     if (!detail || !detail.typhoon) {
-      throw new Error("NMC view_{id} invalid");
+      throw new Error("NMC typhoon detail invalid");
     }
 
     const ty = detail.typhoon;
 
-    // -------------------------------------------------------
-    // Typical NMC structure observed in community usage:
-    // ty[8] = observed track array
-    // ty[9] = forecast agencies array
-    // -------------------------------------------------------
+    // Community-observed structure:
+    // ty[8] observed track
+    // ty[9] forecast agencies
     const observedTrack = Array.isArray(ty[8]) ? ty[8] : [];
-    const last = observedTrack.length ? observedTrack[observedTrack.length - 1] : null;
+    if (!observedTrack.length) throw new Error("NMC observed track missing");
 
-    // NMC commonly packs:
-    // last[4] lon
-    // last[5] lat
-    // last[6] pressure
-    // last[7] wind
-    // last[3] intensity type
-    const lon = last ? safeNum(last[4]) : null;
-    const lat = last ? safeNum(last[5]) : null;
-    const pressure = last ? safeNum(last[6]) : null;
-    const wind = last ? safeNum(last[7]) : null;
-    const intensity = last ? safeText(last[3], "Tropical Cyclone") : "Tropical Cyclone";
+    const last = observedTrack[observedTrack.length - 1];
 
-    // -------------------------------------------------------
+    // Common slots
+    const lon = safeNum(last[4]);
+    const lat = safeNum(last[5]);
+    const pressure = safeNum(last[6]);
+    const wind = safeNum(last[7]);
+    const intensity = safeText(last[3], "Tropical Cyclone");
+
     // Forecast agencies
-    // Usually ty[9][agencyIndex][5] = list of forecast points
-    // Each point often contains lead hour / lon / lat / pressure / wind
-    // Because actual slot positions may differ by feed version,
-    // we do a defensive extraction.
-    // -------------------------------------------------------
     const agencies = Array.isArray(ty[9]) ? ty[9] : [];
     let agencyName = "NMC";
-    let fcRaw = [];
+    let forecastList = [];
 
     if (agencies.length > 0) {
       const firstAgency = agencies[0];
       agencyName = safeText(firstAgency[0], "NMC");
-      fcRaw = Array.isArray(firstAgency[5]) ? firstAgency[5] : [];
+      forecastList = Array.isArray(firstAgency[5]) ? firstAgency[5] : [];
     }
 
-    const route = fcRaw.slice(0, ROUTE_LIMIT).map((p, idx) => {
-      const leadHour = p && (p[2] || p[0] || (idx + 1) * 24);
-      const rLon = p ? safeNum(p[4] ?? p[1]) : null;
-      const rLat = p ? safeNum(p[5] ?? p[2]) : null;
-      const rPressure = p ? safeNum(p[6]) : null;
-      const rWind = p ? safeNum(p[7]) : null;
+    // Build route
+    const route = [
+      {
+        label: "Now",
+        lat,
+        lon,
+        pressure,
+        wind,
+      },
+    ];
 
-      return {
-        label: idx === 0 ? "+24h" : `+${leadHour}h`,
-        lat: rLat,
-        lon: rLon,
-        pressure: rPressure,
-        wind: rWind,
-      };
-    });
+    for (let i = 0; i < Math.min(forecastList.length, ROUTE_LIMIT - 1); i++) {
+      const p = forecastList[i];
+
+      // Different feed versions may shift indexes slightly.
+      // We keep it defensive rather than rigid.
+      const leadHour =
+        safeNum(p[2]) ??
+        safeNum(p[0]) ??
+        ((i + 1) * 24);
+
+      const pLon =
+        safeNum(p[4]) ??
+        safeNum(p[1]);
+
+      const pLat =
+        safeNum(p[5]) ??
+        safeNum(p[2]);
+
+      const pPressure = safeNum(p[6]);
+      const pWind = safeNum(p[7]);
+
+      route.push({
+        label: `+${leadHour}h`,
+        lat: pLat,
+        lon: pLon,
+        pressure: pPressure,
+        wind: pWind,
+      });
+    }
 
     return {
       source: "NMC",
@@ -381,16 +374,7 @@ export default async function (ctx) {
         gust_ms: null,
         rain_mm_24h: null,
       },
-      route: [
-        {
-          label: "Now",
-          lat,
-          lon,
-          pressure,
-          wind,
-        },
-        ...route,
-      ],
+      route,
       updated_at: new Date().toISOString(),
       open_url: OPEN_URL,
     };
@@ -399,141 +383,16 @@ export default async function (ctx) {
 
 
   /* =========================================================
-     OPTIONAL SOURCE: JMA XML
-     Not enabled by default.
-     This is a lightweight parser for users who provide
-     a concrete XML file URL.
-     ========================================================= */
-
-  async function fetchFromJMA() {
-    if (!ENABLE_JMA_FALLBACK || !JMA_XML_URL) {
-      throw new Error("JMA fallback disabled or JMA_XML_URL missing");
-    }
-
-    const xml = await fetchText(JMA_XML_URL);
-
-    // Very light regex parsing to keep Egern script simple.
-    // If JMA format changes, update these patterns.
-    const get = (re) => {
-      const m = xml.match(re);
-      return m ? m[1] : null;
-    };
-
-    const name = get(/<Name>([^<]+)<\/Name>/);
-    const intensity = get(/<jmx_eb:TyphoonClass>([^<]+)<\/jmx_eb:TyphoonClass>/) || "Typhoon";
-    const pressure = get(/<CentralPressure[^>]*>([^<]+)<\/CentralPressure>/);
-    const wind = get(/<MaximumWindSpeed[^>]*>([^<]+)<\/MaximumWindSpeed>/);
-    const lat = get(/<jmx_eb:Coordinate[^>]*>([+\-]?\d+(?:\.\d+)?)\s+([+\-]?\d+(?:\.\d+)?)/);
-    const reportTime = get(/<ReportDateTime>([^<]+)<\/ReportDateTime>/);
-
-    return {
-      source: "JMA",
-      sourceLabel: "Source JMA",
-      storm: {
-        id: "",
-        name: name || "JMA Storm",
-        intensity,
-        pressure_hpa: pressure ? Number(pressure) : null,
-        wind_ms: wind ? Number(wind) : null,
-        movement: "--",
-        location_text: "--",
-        lat: null,
-        lon: null,
-      },
-      warnings: {
-        level: toWarningLevelByIntensity(intensity),
-        title: intensity,
-        areas: [],
-      },
-      observed: {
-        gust_ms: null,
-        rain_mm_24h: null,
-      },
-      route: [],
-      updated_at: reportTime || new Date().toISOString(),
-      open_url: OPEN_URL,
-    };
-  }
-
-
-
-  /* =========================================================
-     OPTIONAL SOURCE: JTWC
-     Placeholder for users who provide a directly readable URL
-     ========================================================= */
-
-  async function fetchFromJTWC() {
-    if (!ENABLE_JTWC_FALLBACK || !JTWC_URL) {
-      throw new Error("JTWC fallback disabled or JTWC_URL missing");
-    }
-
-    const text = await fetchText(JTWC_URL);
-
-    // Keep this intentionally conservative.
-    // Many JTWC public products are text/KML-based and vary by product.
-    return {
-      source: "JTWC",
-      sourceLabel: "Source JTWC",
-      storm: {
-        id: "",
-        name: "JTWC Product",
-        intensity: "Advisory",
-        pressure_hpa: null,
-        wind_ms: null,
-        movement: "--",
-        location_text: "--",
-        lat: null,
-        lon: null,
-      },
-      warnings: {
-        level: "gray",
-        title: "JTWC advisory loaded",
-        areas: [],
-      },
-      observed: {
-        gust_ms: null,
-        rain_mm_24h: null,
-      },
-      route: [],
-      updated_at: new Date().toISOString(),
-      open_url: OPEN_URL,
-      raw: text,
-    };
-  }
-
-
-
-  /* =========================================================
-     SOURCE ORCHESTRATION
-     Priority:
-     1) NMC
-     2) JMA fallback
-     3) JTWC fallback
+     LOAD DATA
      ========================================================= */
 
   let data = null;
-  let errors = [];
+  let error = null;
 
   try {
     data = await fetchFromNMC();
   } catch (e) {
-    errors.push(`NMC: ${String(e.message || e)}`);
-  }
-
-  if (!data && ENABLE_JMA_FALLBACK) {
-    try {
-      data = await fetchFromJMA();
-    } catch (e) {
-      errors.push(`JMA: ${String(e.message || e)}`);
-    }
-  }
-
-  if (!data && ENABLE_JTWC_FALLBACK) {
-    try {
-      data = await fetchFromJTWC();
-    } catch (e) {
-      errors.push(`JTWC: ${String(e.message || e)}`);
-    }
+    error = String(e && e.message ? e.message : e);
   }
 
 
@@ -591,7 +450,7 @@ export default async function (ctx) {
         },
         {
           type: "text",
-          text: errors.join(" | ").slice(0, 120) || "Unknown error",
+          text: error || "Unknown error",
           font: { size: "caption2", weight: "medium" },
           textColor: palette.secondary,
           maxLines: 2,
@@ -605,7 +464,7 @@ export default async function (ctx) {
 
 
   /* =========================================================
-     DATA MAPPING FOR UI
+     MAP DATA TO UI
      ========================================================= */
 
   const storm = data.storm || {};
@@ -615,18 +474,14 @@ export default async function (ctx) {
   const palette = getPalette(warnings.level);
 
   const stormName = safeText(storm.name, "Unnamed System");
-  const intensity = safeText(storm.intensity, "Tropical Cyclone");
   const pressure = metric(storm.pressure_hpa, " hPa");
   const wind = metric(storm.wind_ms, " m/s");
   const gust = metric(observed.gust_ms, " m/s");
   const rain = metric(observed.rain_mm_24h, " mm");
-  const movement = safeText(storm.movement, "--");
   const location = safeText(storm.location_text, "--");
-  const warningTitle = safeText(warnings.title, intensity);
-  const warningAreas = Array.isArray(warnings.areas) && warnings.areas.length
-    ? warnings.areas.join(" · ")
-    : safeText(data.sourceLabel, "Source --");
+  const warningTitle = safeText(warnings.title, "No warning");
   const routeCompact = compactRouteText(route, ROUTE_LIMIT);
+  const sourceText = safeText(data.sourceLabel, "Source --");
   const updatedAt = formatUpdated(data.updated_at);
   const openUrl = data.open_url || OPEN_URL;
 
@@ -790,10 +645,6 @@ export default async function (ctx) {
 
   /* =========================================================
      systemMedium / default
-     Layout logic:
-     top    = identity
-     middle = status + metrics
-     bottom = route + low-contrast support info
      ========================================================= */
 
   return {
@@ -841,7 +692,7 @@ export default async function (ctx) {
 
       {
         type: "text",
-        text: `${warningTitle} · ${safeText(data.source, "NMC")}`,
+        text: `${warningTitle} · ${WIDGET_SUBTITLE}`,
         font: { size: "body", weight: "semibold" },
         textColor: palette.accent,
         maxLines: 1,
@@ -850,7 +701,7 @@ export default async function (ctx) {
 
       {
         type: "text",
-        text: `${location} · ${movement}`,
+        text: location,
         font: { size: "caption1", weight: "medium", family: "Menlo" },
         textColor: palette.secondary,
         maxLines: 1,
@@ -893,7 +744,7 @@ export default async function (ctx) {
         children: [
           {
             type: "text",
-            text: warningAreas,
+            text: sourceText,
             font: { size: "caption2", weight: "medium" },
             textColor: palette.secondary,
             maxLines: 1,
