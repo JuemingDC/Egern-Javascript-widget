@@ -1,0 +1,486 @@
+// 多目标日倒计时小组件（统一字号自适应版）
+//
+// 设计：
+// 1. 左上角标题：倒计时 + 图标
+// 2. 主体按条目纵向排列
+// 3. 每个条目：目标名称 - detail - 右侧剩余天数
+// 4. 不显示目标日期
+// 5. 不使用任何圆环、外框、装饰边框
+// 6. 剩余天数颜色按紧迫程度变化
+// 7. 所有目标名称字号统一，并根据当前显示内容自动调整
+// 8. detail 与目标名称左对齐
+//
+// 环境变量：
+//   TITLE         - 组件标题，默认 "倒计时"
+//   TZ_OFFSET     - 时区，默认 "+08:00"
+//   MAX_ITEMS     - 最多显示几个目标，默认 3，最大 4
+//   REFRESH_MIN   - 刷新间隔（分钟），默认 30
+//
+//   NAME1         - 目标 1 名称
+//   DATE1         - 目标 1 日期，ISO 8601，如 2026-03-19T23:59:59+08:00
+//   DETAIL1       - 目标 1 说明
+//
+//   NAME2 / DATE2 / DETAIL2
+//   NAME3 / DATE3 / DETAIL3
+//   NAME4 / DATE4 / DETAIL4
+//   NAME5 / DATE5 / DETAIL5
+//   NAME6 / DATE6 / DETAIL6
+
+export default async function (ctx) {
+  const TITLE = (ctx.env.TITLE || "倒计时").trim();
+  const TZ_OFFSET = (ctx.env.TZ_OFFSET || "+08:00").trim();
+  const MAX_ITEMS = clampInt(ctx.env.MAX_ITEMS, 3, 1, 4);
+  const REFRESH_MIN = clampInt(ctx.env.REFRESH_MIN, 30, 5, 180);
+
+  const items = collectItems(ctx.env, TZ_OFFSET).slice(0, MAX_ITEMS);
+
+  if (!items.length) {
+    return errorWidget("请至少配置一组 NAME1 / DATE1 / DETAIL1。");
+  }
+
+  const sharedNameFontSize = computeSharedNameFontSize(items);
+
+  if (ctx.widgetFamily === "accessoryInline") {
+    const first = items[0];
+    return {
+      type: "widget",
+      refreshAfter: nextRefreshISO(REFRESH_MIN),
+      children: [
+        {
+          type: "text",
+          text: `${first.name} · ${first.done ? "已到" : `还剩 ${first.days} 天`}`,
+          font: { size: "caption2", weight: "medium" },
+          textColor: color("#111827", "#FFFFFF"),
+          maxLines: 1,
+        },
+      ],
+    };
+  }
+
+  if (ctx.widgetFamily === "accessoryCircular") {
+    const first = items[0];
+    return {
+      type: "widget",
+      refreshAfter: nextRefreshISO(REFRESH_MIN),
+      padding: 8,
+      backgroundGradient: bgGradient(),
+      children: [
+        buildMiniDays(first),
+      ],
+    };
+  }
+
+  if (ctx.widgetFamily === "accessoryRectangular") {
+    const first = items[0];
+    return {
+      type: "widget",
+      refreshAfter: nextRefreshISO(REFRESH_MIN),
+      padding: 10,
+      gap: 6,
+      backgroundGradient: bgGradient(),
+      children: [
+        {
+          type: "stack",
+          direction: "row",
+          alignItems: "center",
+          padding: [0, 0, 2, 0],
+          children: [
+            {
+              type: "stack",
+              direction: "row",
+              alignItems: "center",
+              gap: 5,
+              children: [
+                {
+                  type: "image",
+                  src: "sf-symbol:calendar.badge.clock",
+                  width: 11,
+                  height: 11,
+                  color: "rgba(159,212,255,0.72)",
+                },
+                {
+                  type: "text",
+                  text: TITLE,
+                  font: { size: "caption1", weight: "semibold" },
+                  textColor: "rgba(220,234,251,0.70)",
+                  maxLines: 1,
+                },
+              ],
+            },
+            { type: "spacer" },
+            {
+              type: "text",
+              text: `${items.length} 项`,
+              font: { size: "caption2", weight: "medium" },
+              textColor: "rgba(125,143,168,0.82)",
+              maxLines: 1,
+            },
+          ],
+        },
+        {
+          type: "stack",
+          direction: "row",
+          alignItems: "center",
+          gap: 10,
+          children: [
+            {
+              type: "stack",
+              flex: 1,
+              direction: "column",
+              gap: 2,
+              children: [
+                {
+                  type: "text",
+                  text: first.name,
+                  font: { size: sharedNameFontSize - 1, weight: "bold" },
+                  textColor: "#EAF4FF",
+                  maxLines: 1,
+                  minScale: 0.72,
+                },
+                {
+                  type: "text",
+                  text: first.detail || " ",
+                  font: { size: "caption2", weight: "medium" },
+                  textColor: "#8FA3BE",
+                  maxLines: 1,
+                  minScale: 0.75,
+                },
+              ],
+            },
+            buildMiniDays(first),
+          ],
+        },
+      ],
+    };
+  }
+
+  return {
+    type: "widget",
+    refreshAfter: nextRefreshISO(REFRESH_MIN),
+    padding: [18, 18, 16, 18],
+    gap: 12,
+    backgroundGradient: bgGradient(),
+    children: [
+      {
+        type: "stack",
+        direction: "row",
+        alignItems: "center",
+        padding: [0, 0, 2, 0],
+        children: [
+          {
+            type: "stack",
+            direction: "row",
+            alignItems: "center",
+            gap: 6,
+            children: [
+              {
+                type: "image",
+                src: "sf-symbol:calendar.badge.clock",
+                width: 12,
+                height: 12,
+                color: "rgba(159,212,255,0.72)",
+              },
+              {
+                type: "text",
+                text: TITLE,
+                font: { size: "caption1", weight: "semibold" },
+                textColor: "rgba(234,244,255,0.68)",
+                maxLines: 1,
+              },
+            ],
+          },
+          { type: "spacer" },
+          {
+            type: "text",
+            text: `${items.length} 项`,
+            font: { size: "caption2", weight: "medium" },
+            textColor: "rgba(114,132,157,0.82)",
+            maxLines: 1,
+          },
+        ],
+      },
+
+      {
+        type: "stack",
+        direction: "column",
+        gap: 10,
+        children: items.map((item, index) =>
+          buildItemRow(item, index, items.length, sharedNameFontSize)
+        ),
+      },
+    ],
+  };
+}
+
+function buildItemRow(item, index, total, sharedNameFontSize) {
+  const isLast = index === total - 1;
+
+  return {
+    type: "stack",
+    direction: "column",
+    gap: 8,
+    children: [
+      {
+        type: "stack",
+        direction: "row",
+        alignItems: "center",
+        gap: 12,
+        children: [
+          {
+            type: "stack",
+            flex: 1,
+            direction: "column",
+            gap: 4,
+            children: [
+              {
+                type: "stack",
+                direction: "row",
+                alignItems: "center",
+                gap: 7,
+                children: [
+                  {
+                    type: "stack",
+                    width: 5,
+                    height: 5,
+                    backgroundColor: item.dayColor,
+                    borderRadius: "auto",
+                    children: [],
+                  },
+                  {
+                    type: "text",
+                    text: item.name,
+                    font: { size: sharedNameFontSize, weight: "bold" },
+                    textColor: "#EAF4FF",
+                    maxLines: 1,
+                    minScale: 0.72,
+                    flex: 1,
+                  },
+                ],
+              },
+              {
+                type: "stack",
+                direction: "row",
+                alignItems: "center",
+                gap: 7,
+                children: [
+                  {
+                    type: "stack",
+                    width: 5,
+                    height: 5,
+                    children: [],
+                  },
+                  {
+                    type: "text",
+                    text: item.detail || " ",
+                    font: { size: "caption1", weight: "medium" },
+                    textColor: "#8EA2BD",
+                    maxLines: 2,
+                    minScale: 0.76,
+                    flex: 1,
+                  },
+                ],
+              },
+            ],
+          },
+
+          buildBatteryDays(item),
+        ],
+      },
+
+      ...(isLast
+        ? []
+        : [
+            {
+              type: "stack",
+              direction: "row",
+              height: 1,
+              backgroundColor: "rgba(255,255,255,0.05)",
+              borderRadius: 99,
+              children: [],
+            },
+          ]),
+    ],
+  };
+}
+
+function buildBatteryDays(item) {
+  return {
+    type: "stack",
+    width: 58,
+    height: 58,
+    direction: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    children: [
+      {
+        type: "text",
+        text: String(item.days),
+        font: { size: 26, weight: "bold" },
+        textColor: item.dayColor,
+        shadowColor: withAlpha(item.dayColor, 0.12),
+        shadowRadius: 6,
+        maxLines: 1,
+      },
+      {
+        type: "text",
+        text: item.done ? "DONE" : "DAYS",
+        font: { size: "caption2", weight: "semibold" },
+        textColor: "#9FB2C8",
+        maxLines: 1,
+      },
+    ],
+  };
+}
+
+function buildMiniDays(item) {
+  return {
+    type: "stack",
+    width: 42,
+    height: 42,
+    direction: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    children: [
+      {
+        type: "text",
+        text: String(item.days),
+        font: { size: "headline", weight: "bold" },
+        textColor: item.dayColor,
+        maxLines: 1,
+      },
+    ],
+  };
+}
+
+function collectItems(env, tzOffset) {
+  const out = [];
+  const now = currentDateByOffset(tzOffset);
+
+  for (let i = 1; i <= 6; i++) {
+    const name = String(env[`NAME${i}`] || "").trim();
+    const dateRaw = String(env[`DATE${i}`] || "").trim();
+    const detail = String(env[`DETAIL${i}`] || "").trim();
+
+    if (!name || !dateRaw) continue;
+
+    const target = new Date(dateRaw);
+    if (Number.isNaN(target.getTime())) continue;
+
+    const remainMs = target.getTime() - now.getTime();
+    const days = remainMs <= 0 ? 0 : Math.ceil(remainMs / 86400000);
+    const done = remainMs <= 0;
+
+    out.push({
+      name,
+      detail,
+      target,
+      days,
+      done,
+      dayColor: urgencyColor(days, done),
+    });
+  }
+
+  out.sort((a, b) => a.target.getTime() - b.target.getTime());
+  return out;
+}
+
+function computeSharedNameFontSize(items) {
+  const maxLen = Math.max(...items.map((x) => visualLength(x.name)));
+
+  if (maxLen <= 8) return 17;
+  if (maxLen <= 12) return 16;
+  if (maxLen <= 16) return 15;
+  if (maxLen <= 20) return 14;
+  return 13;
+}
+
+function visualLength(text) {
+  let len = 0;
+  for (const ch of String(text || "")) {
+    len += /[ -~]/.test(ch) ? 0.55 : 1;
+  }
+  return len;
+}
+
+function urgencyColor(days, done) {
+  if (done) return "#A1AFC3";
+  if (days <= 3) return "#F87171";
+  if (days <= 7) return "#FB923C";
+  if (days <= 15) return "#FBBF24";
+  return "#34D399";
+}
+
+function bgGradient() {
+  return {
+    type: "linear",
+    colors: ["#07101B", "#0B1525", "#111D31", "#18263C"],
+    stops: [0, 0.35, 0.72, 1],
+    startPoint: { x: 0, y: 0 },
+    endPoint: { x: 1, y: 1 },
+  };
+}
+
+function withAlpha(hex, alpha) {
+  const h = String(hex || "").replace("#", "").trim();
+  if (h.length !== 6) return `rgba(255,255,255,${alpha})`;
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function currentDateByOffset(offset) {
+  const minutes = parseOffsetToMinutes(offset);
+  const now = new Date();
+  return new Date(now.getTime() + (minutes + now.getTimezoneOffset()) * 60000);
+}
+
+function parseOffsetToMinutes(offset) {
+  const m = String(offset).trim().match(/^([+-])(\d{2}):?(\d{2})$/);
+  if (!m) return 8 * 60;
+  const sign = m[1] === "-" ? -1 : 1;
+  return sign * (parseInt(m[2], 10) * 60 + parseInt(m[3], 10));
+}
+
+function nextRefreshISO(minutes) {
+  return new Date(Date.now() + minutes * 60000).toISOString();
+}
+
+function clampInt(v, fallback, min, max) {
+  const n = parseInt(v, 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+}
+
+function color(light, dark) {
+  return { light, dark };
+}
+
+function errorWidget(message) {
+  return {
+    type: "widget",
+    padding: 16,
+    backgroundGradient: {
+      type: "linear",
+      colors: ["#281414", "#351919", "#402020"],
+      stops: [0, 0.55, 1],
+      startPoint: { x: 0, y: 0 },
+      endPoint: { x: 1, y: 1 },
+    },
+    children: [
+      {
+        type: "text",
+        text: "倒计时组件",
+        font: { size: "headline", weight: "bold" },
+        textColor: "#FFFFFF",
+      },
+      {
+        type: "text",
+        text: message,
+        font: { size: "caption1", weight: "medium" },
+        textColor: "#FFB4A2",
+        maxLines: 2,
+      },
+    ],
+  };
+}
