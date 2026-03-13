@@ -1,0 +1,250 @@
+export default async function(ctx) {
+  const REGION_SLUG = ctx.env.REGION_SLUG || 'united-states';
+  const TITLE = ctx.env.TITLE || 'X 趋势';
+  const CACHE_KEY = `x_trends_cache_${REGION_SLUG}`;
+
+  function color(light, dark) {
+    return { light, dark };
+  }
+
+  function decodeHtml(str) {
+    return String(str || '')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&#39;/g, "'")
+      .replace(/&quot;/g, '"')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function extractTrends(html) {
+    const items = [];
+    const regex = /<a[^>]*href="\/([^"]+)"[^>]*>(.*?)<\/a>/gis;
+    let match;
+
+    while ((match = regex.exec(html)) !== null) {
+      const href = match[1] || '';
+      const text = decodeHtml(match[2] || '');
+
+      if (!text) continue;
+      if (text.length > 60) continue;
+      if (/^(read more|contact|subscribe|archive|worldwide|united states)$/i.test(text)) continue;
+      if (!href.includes('/') && !href.startsWith('i/')) continue;
+
+      items.push(text);
+    }
+
+    const deduped = [];
+    const seen = new Set();
+
+    for (const item of items) {
+      const key = item.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(item);
+      if (deduped.length >= 8) break;
+    }
+
+    return deduped;
+  }
+
+  async function getTrends() {
+    const url = `https://trends24.in/${REGION_SLUG}/`;
+    const resp = await ctx.http.get(url, {
+      timeout: 10000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+      },
+    });
+
+    const html = await resp.text();
+    const trends = extractTrends(html);
+
+    if (!trends.length) {
+      throw new Error('未解析到趋势数据');
+    }
+
+    const payload = {
+      trends,
+      updatedAt: new Date().toISOString(),
+    };
+
+    ctx.storage.setJSON(CACHE_KEY, payload);
+    return payload;
+  }
+
+  let data;
+  let stale = false;
+
+  try {
+    data = await getTrends();
+  } catch (error) {
+    data = ctx.storage.getJSON(CACHE_KEY);
+    stale = true;
+    if (!data?.trends?.length) {
+      return {
+        type: 'widget',
+        padding: 16,
+        backgroundColor: color('#FFF5F5', '#2A1414'),
+        children: [
+          {
+            type: 'text',
+            text: TITLE,
+            font: { size: 'headline', weight: 'bold' },
+            textColor: color('#8B1E1E', '#FFD6D6'),
+          },
+          {
+            type: 'text',
+            text: `加载失败：${error.message}`,
+            font: { size: 'caption1' },
+            textColor: color('#8B1E1E', '#FFD6D6'),
+            maxLines: 2,
+          },
+        ],
+        refreshAfter: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      };
+    }
+  }
+
+  const trends = data.trends || [];
+  const top = trends.slice(0, ctx.widgetFamily === 'systemSmall' ? 3 : 5);
+  const updatedAt = data.updatedAt ? new Date(data.updatedAt).toISOString() : new Date().toISOString();
+
+  if (ctx.widgetFamily === 'accessoryInline') {
+    return {
+      type: 'widget',
+      children: [
+        {
+          type: 'text',
+          text: `X: ${top[0] || '暂无数据'}`,
+          font: { size: 'caption1', weight: 'medium' },
+          textColor: color('#111111', '#FFFFFF'),
+          maxLines: 1,
+        },
+      ],
+      refreshAfter: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+    };
+  }
+
+  if (ctx.widgetFamily === 'accessoryRectangular') {
+    return {
+      type: 'widget',
+      padding: 10,
+      backgroundColor: color('#F3F7FF', '#101826'),
+      children: [
+        {
+          type: 'stack',
+          direction: 'column',
+          gap: 3,
+          children: [
+            {
+              type: 'text',
+              text: TITLE,
+              font: { size: 'caption1', weight: 'bold' },
+              textColor: color('#111111', '#FFFFFF'),
+              maxLines: 1,
+            },
+            {
+              type: 'text',
+              text: top[0] || '暂无数据',
+              font: { size: 'caption2' },
+              textColor: color('#3A3A3A', '#FFFFFFCC'),
+              maxLines: 1,
+              minScale: 0.7,
+            },
+            {
+              type: 'text',
+              text: top[1] || '',
+              font: { size: 'caption2' },
+              textColor: color('#3A3A3A', '#FFFFFFCC'),
+              maxLines: 1,
+              minScale: 0.7,
+            },
+          ],
+        },
+      ],
+      refreshAfter: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+    };
+  }
+
+  return {
+    type: 'widget',
+    padding: 16,
+    gap: 8,
+    backgroundGradient: {
+      type: 'linear',
+      colors: ['#111827', '#1F2937', '#0F172A'],
+      startPoint: { x: 0, y: 0 },
+      endPoint: { x: 1, y: 1 },
+    },
+    children: [
+      {
+        type: 'stack',
+        direction: 'row',
+        alignItems: 'center',
+        children: [
+          {
+            type: 'text',
+            text: TITLE,
+            font: { size: 'headline', weight: 'bold' },
+            textColor: '#FFFFFF',
+          },
+          { type: 'spacer' },
+          {
+            type: 'text',
+            text: stale ? '缓存' : '实时',
+            font: { size: 'caption2', weight: 'medium' },
+            textColor: stale ? '#FFD166' : '#7CFFB2',
+          },
+        ],
+      },
+      ...top.map((item, index) => ({
+        type: 'stack',
+        direction: 'row',
+        alignItems: 'center',
+        gap: 8,
+        children: [
+          {
+            type: 'text',
+            text: `${index + 1}.`,
+            font: { size: 'footnote', weight: 'bold' },
+            textColor: '#60A5FA',
+          },
+          {
+            type: 'text',
+            text: item,
+            font: { size: 'footnote' },
+            textColor: '#FFFFFFE6',
+            maxLines: 1,
+            minScale: 0.7,
+            flex: 1,
+          },
+        ],
+      })),
+      {
+        type: 'stack',
+        direction: 'row',
+        alignItems: 'center',
+        children: [
+          {
+            type: 'text',
+            text: stale ? '显示最近一次缓存结果' : '最近刷新',
+            font: { size: 'caption2' },
+            textColor: '#FFFFFF99',
+          },
+          { type: 'spacer' },
+          {
+            type: 'date',
+            date: updatedAt,
+            format: 'relative',
+            font: { size: 'caption2' },
+            textColor: '#FFFFFF99',
+          },
+        ],
+      },
+    ],
+    refreshAfter: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+  };
+}
