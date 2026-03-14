@@ -88,7 +88,7 @@ export default async function (ctx) {
   "nanning": "南宁", "lanzhou": "兰州", "xining": "西宁",
   "yinchuan": "银川", "wulumuqi": "乌鲁木齐", "lasa": "拉萨",
   "huhehaote": "呼和浩特", "xian": "西安", "taiyuan": "太原",
-  "shanxi-1": "山西", "shanxi-3": "陕西",
+  "shanxi-1": "山西", "shanxi-3": "陕西","yancheng":"盐城",
  };
 
  // 🔧 解析地区名称
