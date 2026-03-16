@@ -1,8 +1,5 @@
-// 机场订阅小组件（严格按 Egern Widget DSL / JavaScript API 编写）
+// 机场订阅小组件（Egern 严格 DSL 版 / 液态玻璃艺术风）
 // 环境变量：NAME1/URL1/RESET1 ... NAME8/URL8/RESET8
-// NAME: 机场名称（可选）
-// URL: 订阅链接（必填）
-// RESET: 每月重置日，例如 1 / 15 / 28（可选）
 
 export default async function (ctx) {
   const MAX = 8;
@@ -27,7 +24,6 @@ export default async function (ctx) {
   }
 
   const results = await Promise.all(slots.map((slot) => fetchInfo(ctx, slot)));
-  const cards = results.map((item) => buildCard(item, style));
 
   return {
     type: "widget",
@@ -37,11 +33,12 @@ export default async function (ctx) {
     backgroundGradient: {
       type: "linear",
       colors: [
-        { light: "#EEF6FF", dark: "#07111F" },
-        { light: "#DDEEFF", dark: "#0A1830" },
-        { light: "#CFE8FF", dark: "#10244A" }
+        { light: "#F8FBFF", dark: "#07111B" },
+        { light: "#EEF6FF", dark: "#0B1730" },
+        { light: "#F6F0FF", dark: "#111B3E" },
+        { light: "#EAFBFF", dark: "#102747" }
       ],
-      stops: [0, 0.55, 1],
+      stops: [0, 0.35, 0.72, 1],
       startPoint: { x: 0, y: 0 },
       endPoint: { x: 1, y: 1 }
     },
@@ -50,8 +47,8 @@ export default async function (ctx) {
       {
         type: "stack",
         direction: "column",
-        gap: style.cardGap,
-        children: cards,
+        gap: style.listGap,
+        children: results.map((item, index) => buildRow(item, style, index, results.length))
       }
     ]
   };
@@ -60,51 +57,37 @@ export default async function (ctx) {
 function buildEmptyWidget(refreshAfter) {
   return {
     type: "widget",
-    padding: 16,
+    padding: [16, 16, 16, 16],
     gap: 10,
     refreshAfter,
     backgroundGradient: {
       type: "linear",
       colors: [
-        { light: "#EEF6FF", dark: "#07111F" },
-        { light: "#DDEEFF", dark: "#0A1830" }
+        { light: "#F8FBFF", dark: "#07111B" },
+        { light: "#EEF6FF", dark: "#0B1730" },
+        { light: "#F6F0FF", dark: "#111B3E" }
       ],
       startPoint: { x: 0, y: 0 },
       endPoint: { x: 1, y: 1 }
     },
     children: [
       {
-        type: "stack",
-        direction: "row",
-        alignItems: "center",
-        gap: 8,
-        children: [
-          {
-            type: "image",
-            src: "sf-symbol:antenna.radiowaves.left.and.right",
-            width: 16,
-            height: 16,
-            color: { light: "#0A84FF", dark: "#67D4FF" }
-          },
-          {
-            type: "text",
-            text: "机场订阅",
-            font: { size: "headline", weight: "bold" },
-            textColor: { light: "#10233A", dark: "#EAF4FF" }
-          }
-        ]
+        type: "text",
+        text: "机场订阅",
+        font: { size: "headline", weight: "bold" },
+        textColor: { light: "#16253A", dark: "#ECF5FF" }
       },
       {
         type: "text",
         text: "请配置 URL1 环境变量",
-        font: { size: "subheadline", weight: "medium" },
-        textColor: { light: "#C62828", dark: "#FF8A80" }
+        font: { size: "subheadline", weight: "semibold" },
+        textColor: { light: "#8D3C7A", dark: "#FF9EE8" }
       },
       {
         type: "text",
         text: "支持：NAME1/URL1/RESET1 ... NAME8/URL8/RESET8",
         font: { size: "caption1" },
-        textColor: { light: "#5C6F82", dark: "#8EA3B8" },
+        textColor: { light: "#62728A", dark: "#9CB0C8" },
         maxLines: 2,
         minScale: 0.8
       }
@@ -120,22 +103,21 @@ function buildHeader(style) {
     children: [
       {
         type: "stack",
-        direction: "row",
-        alignItems: "center",
-        gap: 6,
+        direction: "column",
+        gap: 2,
         children: [
           {
-            type: "image",
-            src: "sf-symbol:dot.radiowaves.left.and.right",
-            width: style.headerIcon,
-            height: style.headerIcon,
-            color: { light: "#0A84FF", dark: "#67D4FF" }
+            type: "text",
+            text: "AIRPORT FLOW",
+            font: { size: style.kickerFont, weight: "semibold" },
+            textColor: { light: "#7D7AAE", dark: "#8FA4FF" },
+            opacity: 0.88
           },
           {
             type: "text",
-            text: "订阅监测",
+            text: "订阅流量",
             font: { size: style.headerFont, weight: "bold" },
-            textColor: { light: "#10233A", dark: "#EAF4FF" }
+            textColor: { light: "#15263C", dark: "#EEF6FF" }
           }
         ]
       },
@@ -145,76 +127,72 @@ function buildHeader(style) {
         date: new Date().toISOString(),
         format: "time",
         font: { size: style.metaFont, weight: "medium" },
-        textColor: { light: "#5C6F82", dark: "#8EA3B8" }
+        textColor: { light: "#6F7F96", dark: "#98ABC4" }
       }
     ]
   };
 }
 
-function buildCard(item, style) {
+function buildRow(item, style, index, total) {
   if (item.error) {
     return {
       type: "stack",
-      direction: "row",
-      alignItems: "center",
-      gap: 8,
-      padding: style.cardPadding,
-      backgroundColor: { light: "#FFFFFFCC", dark: "#0D1B2BCC" },
-      borderRadius: style.cardRadius,
-      borderWidth: 1,
-      borderColor: { light: "#FFD5D5", dark: "#5D1E26" },
+      direction: "column",
+      gap: style.rowGap,
       children: [
         {
-          type: "image",
-          src: "sf-symbol:exclamationmark.triangle.fill",
-          width: style.nameIcon,
-          height: style.nameIcon,
-          color: { light: "#FF3B30", dark: "#FF6B6B" }
+          type: "stack",
+          direction: "row",
+          alignItems: "center",
+          gap: 8,
+          children: [
+            {
+              type: "image",
+              src: "sf-symbol:smallcircle.filled.circle.fill",
+              width: style.dotSize,
+              height: style.dotSize,
+              color: { light: "#FF7AA8", dark: "#FF99C7" }
+            },
+            {
+              type: "text",
+              text: item.name,
+              flex: 1,
+              font: { size: style.nameFont, weight: "bold" },
+              textColor: { light: "#16253A", dark: "#F4F8FF" },
+              maxLines: 1,
+              minScale: 0.7
+            },
+            {
+              type: "text",
+              text: "获取失败",
+              font: { size: style.infoFont, weight: "semibold" },
+              textColor: { light: "#C24B80", dark: "#FFA8D1" }
+            }
+          ]
         },
-        {
-          type: "text",
-          text: item.name,
-          flex: 1,
-          font: { size: style.nameFont, weight: "bold" },
-          textColor: { light: "#16212E", dark: "#F1F6FF" },
-          maxLines: 1,
-          minScale: 0.72
-        },
-        {
-          type: "text",
-          text: "获取失败",
-          font: { size: style.metaFont, weight: "semibold" },
-          textColor: { light: "#C62828", dark: "#FF8A80" }
-        }
+        buildDivider(style, index, total)
       ]
     };
   }
 
   const tone = getUsageTone(item.percent);
-  const progressRow = buildProgressBar(item.percent, tone, style);
-  const suffix = buildSuffix(item);
 
   return {
     type: "stack",
     direction: "column",
-    gap: style.innerGap,
-    padding: style.cardPadding,
-    backgroundColor: { light: "#FFFFFFC8", dark: "#0C1A2ACC" },
-    borderRadius: style.cardRadius,
-    borderWidth: 1,
-    borderColor: { light: "#BFDFFF", dark: "#17365A" },
+    gap: style.rowGap,
     children: [
       {
         type: "stack",
         direction: "row",
         alignItems: "center",
-        gap: 6,
+        gap: 8,
         children: [
           {
             type: "image",
-            src: "sf-symbol:circle.fill",
-            width: style.nameIcon,
-            height: style.nameIcon,
+            src: "sf-symbol:smallcircle.filled.circle.fill",
+            width: style.dotSize,
+            height: style.dotSize,
             color: tone.dotColor
           },
           {
@@ -222,14 +200,18 @@ function buildCard(item, style) {
             text: item.name,
             flex: 1,
             font: { size: style.nameFont, weight: "bold" },
-            textColor: { light: "#10233A", dark: "#F3F8FF" },
+            textColor: { light: "#14253A", dark: "#F5F8FF" },
             maxLines: 1,
-            minScale: 0.72
+            minScale: 0.7
           },
-          suffix
+          {
+            type: "text",
+            text: `${item.percent.toFixed(1)}%`,
+            font: { size: style.percentFont, weight: "bold" },
+            textColor: tone.percentColor
+          }
         ]
       },
-      progressRow,
       {
         type: "stack",
         direction: "row",
@@ -240,64 +222,146 @@ function buildCard(item, style) {
             text: `${bytesToSize(item.used)} / ${bytesToSize(item.totalBytes)}`,
             flex: 1,
             font: { size: style.infoFont, weight: "medium" },
-            textColor: { light: "#314356", dark: "#C4D7EB" },
+            textColor: { light: "#45556C", dark: "#B6C6DB" },
             maxLines: 1,
             minScale: 0.72
           },
           {
             type: "text",
-            text: `${item.percent.toFixed(1)}%`,
-            font: { size: style.percentFont, weight: "bold" },
-            textColor: tone.textColor
+            text: getMetaText(item).text,
+            font: { size: style.metaFont, weight: "medium" },
+            textColor: getMetaText(item).color,
+            maxLines: 1,
+            minScale: 0.72
           }
         ]
-      }
+      },
+      buildArtBar(item.percent, tone, style),
+      buildDivider(style, index, total)
     ]
   };
 }
 
-function buildSuffix(item) {
-  const meta = getMetaText(item);
-  return {
-    type: "text",
-    text: meta.text,
-    font: { size: meta.fontSize, weight: "medium" },
-    textColor: meta.color,
-    maxLines: 1,
-    minScale: 0.72
-  };
-}
-
-function buildProgressBar(percent, tone, style) {
-  const clamped = clamp(percent, 0, 100);
-  const filled = Math.max(0.0001, clamped);
-  const empty = Math.max(0.0001, 100 - clamped);
-
+function buildDivider(style, index, total) {
+  if (index === total - 1) return { type: "spacer", length: 0 };
   return {
     type: "stack",
     direction: "row",
-    gap: style.progressGap,
+    padding: [style.dividerTop, 0, 0, 0],
     children: [
       {
         type: "stack",
-        flex: filled,
-        height: style.progressHeight,
+        flex: 1,
+        height: 1,
         backgroundGradient: {
           type: "linear",
-          colors: tone.barColors,
+          colors: [
+            { light: "#FFFFFF00", dark: "#FFFFFF00" },
+            { light: "#DDE7FFAA", dark: "#8AA4FF66" },
+            { light: "#CFF7FFAA", dark: "#74F0FF66" },
+            { light: "#FFFFFF00", dark: "#FFFFFF00" }
+          ],
+          stops: [0, 0.24, 0.76, 1],
           startPoint: { x: 0, y: 0 },
           endPoint: { x: 1, y: 0 }
         },
         borderRadius: 99,
         children: []
+      }
+    ]
+  };
+}
+
+function buildArtBar(percent, tone, style) {
+  const clamped = clamp(percent, 0, 100);
+  const filled = Math.max(0.0001, clamped);
+  const empty = Math.max(0.0001, 100 - clamped);
+  const glowFlex = Math.max(4, Math.min(12, Math.round(clamped / 9) || 4));
+
+  return {
+    type: "stack",
+    direction: "column",
+    gap: 3,
+    children: [
+      {
+        type: "stack",
+        direction: "row",
+        children: [
+          {
+            type: "stack",
+            flex: filled,
+            height: style.glowHeight,
+            backgroundGradient: {
+              type: "linear",
+              colors: tone.glowColors,
+              stops: [0, 0.5, 1],
+              startPoint: { x: 0, y: 0 },
+              endPoint: { x: 1, y: 0 }
+            },
+            borderRadius: 99,
+            children: [
+              {
+                type: "stack",
+                direction: "row",
+                children: [
+                  { type: "spacer" },
+                  {
+                    type: "stack",
+                    flex: glowFlex,
+                    height: style.glowHeight,
+                    backgroundColor: { light: "#FFFFFFB8", dark: "#FFFFFF55" },
+                    borderRadius: 99,
+                    children: []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            type: "stack",
+            flex: empty,
+            height: style.glowHeight,
+            backgroundColor: { light: "#FFFFFF12", dark: "#FFFFFF08" },
+            borderRadius: 99,
+            children: []
+          }
+        ]
       },
       {
         type: "stack",
-        flex: empty,
-        height: style.progressHeight,
-        backgroundColor: { light: "#D9E7F5", dark: "#21364C" },
-        borderRadius: 99,
-        children: []
+        direction: "row",
+        children: [
+          {
+            type: "stack",
+            flex: filled,
+            height: style.barHeight,
+            backgroundGradient: {
+              type: "linear",
+              colors: tone.barColors,
+              stops: [0, 0.38, 1],
+              startPoint: { x: 0, y: 0 },
+              endPoint: { x: 1, y: 0 }
+            },
+            borderRadius: 99,
+            children: []
+          },
+          {
+            type: "stack",
+            flex: empty,
+            height: style.barHeight,
+            backgroundGradient: {
+              type: "linear",
+              colors: [
+                { light: "#FFFFFF55", dark: "#FFFFFF12" },
+                { light: "#E4EEFA55", dark: "#24344F66" }
+              ],
+              startPoint: { x: 0, y: 0 },
+              endPoint: { x: 1, y: 0 }
+            },
+            borderRadius: 99,
+            children: []
+          }
+        ]
       }
     ]
   };
@@ -392,55 +456,73 @@ function parseUserInfo(header) {
 }
 
 function getStyle(count, family) {
-  const isCompact = family === "systemSmall" || family === "accessoryRectangular" || count >= 5;
-  const isDense = count >= 6;
+  const compact = family === "systemSmall" || family === "accessoryRectangular";
+  const dense = count >= 5;
+  const veryDense = count >= 7;
 
   return {
-    widgetPadding: isCompact ? [12, 12, 12, 12] : [14, 14, 14, 14],
-    widgetGap: isCompact ? 8 : 10,
-    cardGap: count <= 2 ? 9 : count <= 4 ? 7 : 6,
-    cardPadding: isDense ? [8, 10, 8, 10] : isCompact ? [9, 11, 9, 11] : [10, 12, 10, 12],
-    cardRadius: isCompact ? 12 : 14,
-    innerGap: isDense ? 5 : 6,
-    progressHeight: isDense ? 5 : 6,
-    progressGap: 2,
-    headerFont: isCompact ? "caption1" : "subheadline",
-    headerIcon: isCompact ? 12 : 13,
-    metaFont: isDense ? "caption2" : "caption1",
-    nameFont: isDense ? "caption1" : isCompact ? "subheadline" : "headline",
-    infoFont: isDense ? "caption2" : "caption1",
-    percentFont: isDense ? "caption1" : "subheadline",
-    nameIcon: isDense ? 8 : 9,
+    widgetPadding: compact ? [12, 12, 12, 12] : dense ? [12, 13, 12, 13] : [14, 15, 14, 15],
+    widgetGap: compact ? 8 : 10,
+    listGap: veryDense ? 6 : dense ? 8 : 10,
+    rowGap: veryDense ? 3 : 4,
+    dividerTop: veryDense ? 4 : 6,
+    headerFont: compact ? "subheadline" : dense ? "headline" : "title3",
+    kickerFont: compact ? "caption2" : "caption1",
+    metaFont: veryDense ? "caption2" : "caption1",
+    nameFont: veryDense ? "caption1" : dense ? "subheadline" : "headline",
+    infoFont: veryDense ? "caption2" : "caption1",
+    percentFont: veryDense ? "caption1" : dense ? "subheadline" : "headline",
+    dotSize: veryDense ? 7 : 8,
+    glowHeight: veryDense ? 3 : 4,
+    barHeight: veryDense ? 4 : dense ? 5 : 6,
   };
 }
 
 function getUsageTone(percent) {
   if (percent >= 90) {
     return {
-      dotColor: { light: "#FF3B30", dark: "#FF6B6B" },
-      textColor: { light: "#C62828", dark: "#FF8A80" },
+      dotColor: { light: "#FF73B3", dark: "#FF98CE" },
+      percentColor: { light: "#C34A8C", dark: "#FFB4DE" },
+      glowColors: [
+        { light: "#FFD7EC", dark: "#FF9BD466" },
+        { light: "#FF9CD1", dark: "#FF7FC4AA" },
+        { light: "#FF73B3", dark: "#FF73B3CC" }
+      ],
       barColors: [
-        { light: "#FF7A70", dark: "#FF8A80" },
-        { light: "#FF3B30", dark: "#FF5252" }
+        { light: "#FFC8E6", dark: "#FF98CE" },
+        { light: "#FF94CB", dark: "#FF73B3" },
+        { light: "#FF73B3", dark: "#E55EFF" }
       ]
     };
   }
   if (percent >= 70) {
     return {
-      dotColor: { light: "#FF9500", dark: "#FFB74D" },
-      textColor: { light: "#B26A00", dark: "#FFD180" },
+      dotColor: { light: "#FF9E59", dark: "#FFC07F" },
+      percentColor: { light: "#C97835", dark: "#FFD29F" },
+      glowColors: [
+        { light: "#FFE7CF", dark: "#FFC07F55" },
+        { light: "#FFC992", dark: "#FFB36ECC" },
+        { light: "#FF9E59", dark: "#FF9E59CC" }
+      ],
       barColors: [
-        { light: "#FFD166", dark: "#FFC947" },
-        { light: "#FF9500", dark: "#FFB300" }
+        { light: "#FFE1BF", dark: "#FFD39A" },
+        { light: "#FFC07A", dark: "#FFB36E" },
+        { light: "#FF9E59", dark: "#FF8A5C" }
       ]
     };
   }
   return {
-    dotColor: { light: "#00A6FB", dark: "#67D4FF" },
-    textColor: { light: "#0068B3", dark: "#8AE3FF" },
+    dotColor: { light: "#6B8CFF", dark: "#8DDCFF" },
+    percentColor: { light: "#5A67D8", dark: "#B2EEFF" },
+    glowColors: [
+      { light: "#E4E7FF", dark: "#7E8EFF44" },
+      { light: "#B9D8FF", dark: "#6FA2FF99" },
+      { light: "#8AE7FF", dark: "#72EEFFCC" }
+    ],
     barColors: [
-      { light: "#7BDFF2", dark: "#53D7FF" },
-      { light: "#0A84FF", dark: "#1FA2FF" }
+      { light: "#D8D9FF", dark: "#7C8DFF" },
+      { light: "#A0C4FF", dark: "#62B8FF" },
+      { light: "#86F1FF", dark: "#72EEFF" }
     ]
   };
 }
@@ -451,38 +533,33 @@ function getMetaText(item) {
     if (daysLeft < 0) {
       return {
         text: "已到期",
-        fontSize: "caption2",
-        color: { light: "#C62828", dark: "#FF8A80" }
+        color: { light: "#C24B80", dark: "#FFADD3" }
       };
     }
     if (daysLeft <= 7) {
       return {
         text: `${daysLeft}天后到期`,
-        fontSize: "caption2",
-        color: { light: "#B26A00", dark: "#FFD180" }
+        color: { light: "#C97835", dark: "#FFD29F" }
       };
     }
     return {
       text: formatDate(item.expire),
-      fontSize: "caption2",
-      color: { light: "#5C6F82", dark: "#8EA3B8" }
+      color: { light: "#6F7F96", dark: "#97AAC5" }
     };
   }
 
   if (item.remainDays !== null) {
     return {
       text: `${item.remainDays}天重置`,
-      fontSize: "caption2",
       color: item.remainDays <= 3
-        ? { light: "#B26A00", dark: "#FFD180" }
-        : { light: "#5C6F82", dark: "#8EA3B8" }
+        ? { light: "#C97835", dark: "#FFD29F" }
+        : { light: "#6F7F96", dark: "#97AAC5" }
     };
   }
 
   return {
     text: "",
-    fontSize: "caption2",
-    color: { light: "#5C6F82", dark: "#8EA3B8" }
+    color: { light: "#6F7F96", dark: "#97AAC5" }
   };
 }
 
