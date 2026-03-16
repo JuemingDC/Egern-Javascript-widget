@@ -1,14 +1,11 @@
-// 多目标日倒计时小组件（统一字号自适应版）
+// 多目标日倒计时小组件（液态玻璃夜空版）
 //
 // 设计：
-// 1. 左上角标题：倒计时 + 图标
-// 2. 主体按条目纵向排列
-// 3. 每个条目：目标名称 - detail - 右侧剩余天数
-// 4. 不显示目标日期
-// 5. 不使用任何圆环、外框、装饰边框
-// 6. 剩余天数颜色按紧迫程度变化
-// 7. 所有目标名称字号统一，并根据当前显示内容自动调整
-// 8. detail 与目标名称左对齐
+// 1. 保留原有环境变量与数据逻辑
+// 2. 夜空风格双色渐变 + 轻液态玻璃感
+// 3. 去除厚重框感，仅保留轻微层次与发光分隔
+// 4. 内容不挤满整个组件，自动根据条目数调整字号与间距
+// 5. 多目标时自动收缩标题/明细/天数字号，保证布局稳定
 //
 // 环境变量：
 //   TITLE         - 组件标题，默认 "倒计时"
@@ -38,7 +35,7 @@ export default async function (ctx) {
     return errorWidget("请至少配置一组 NAME1 / DATE1 / DETAIL1。");
   }
 
-  const sharedNameFontSize = computeSharedNameFontSize(items);
+  const metrics = computeLayoutMetrics(items);
 
   if (ctx.widgetFamily === "accessoryInline") {
     const first = items[0];
@@ -50,7 +47,7 @@ export default async function (ctx) {
           type: "text",
           text: `${first.name} · ${first.done ? "已到" : `还剩 ${first.days} 天`}`,
           font: { size: "caption2", weight: "medium" },
-          textColor: color("#111827", "#FFFFFF"),
+          textColor: color("#0F172A", "#F8FAFC"),
           maxLines: 1,
         },
       ],
@@ -64,9 +61,7 @@ export default async function (ctx) {
       refreshAfter: nextRefreshISO(REFRESH_MIN),
       padding: 8,
       backgroundGradient: bgGradient(),
-      children: [
-        buildMiniDays(first),
-      ],
+      children: [buildMiniDays(first, metrics)],
     };
   }
 
@@ -79,44 +74,7 @@ export default async function (ctx) {
       gap: 6,
       backgroundGradient: bgGradient(),
       children: [
-        {
-          type: "stack",
-          direction: "row",
-          alignItems: "center",
-          padding: [0, 0, 2, 0],
-          children: [
-            {
-              type: "stack",
-              direction: "row",
-              alignItems: "center",
-              gap: 5,
-              children: [
-                {
-                  type: "image",
-                  src: "sf-symbol:calendar.badge.clock",
-                  width: 11,
-                  height: 11,
-                  color: "rgba(159,212,255,0.72)",
-                },
-                {
-                  type: "text",
-                  text: TITLE,
-                  font: { size: "caption1", weight: "semibold" },
-                  textColor: "rgba(220,234,251,0.70)",
-                  maxLines: 1,
-                },
-              ],
-            },
-            { type: "spacer" },
-            {
-              type: "text",
-              text: `${items.length} 项`,
-              font: { size: "caption2", weight: "medium" },
-              textColor: "rgba(125,143,168,0.82)",
-              maxLines: 1,
-            },
-          ],
-        },
+        buildHeader(TITLE, items.length, 11),
         {
           type: "stack",
           direction: "row",
@@ -132,8 +90,8 @@ export default async function (ctx) {
                 {
                   type: "text",
                   text: first.name,
-                  font: { size: sharedNameFontSize - 1, weight: "bold" },
-                  textColor: "#EAF4FF",
+                  font: { size: Math.max(12, metrics.nameSize - 1), weight: "bold" },
+                  textColor: "#F4F8FF",
                   maxLines: 1,
                   minScale: 0.72,
                 },
@@ -141,13 +99,13 @@ export default async function (ctx) {
                   type: "text",
                   text: first.detail || " ",
                   font: { size: "caption2", weight: "medium" },
-                  textColor: "#8FA3BE",
+                  textColor: "rgba(201,214,235,0.72)",
                   maxLines: 1,
                   minScale: 0.75,
                 },
               ],
             },
-            buildMiniDays(first),
+            buildMiniDays(first, metrics),
           ],
         },
       ],
@@ -157,80 +115,83 @@ export default async function (ctx) {
   return {
     type: "widget",
     refreshAfter: nextRefreshISO(REFRESH_MIN),
-    padding: [18, 18, 16, 18],
-    gap: 12,
+    padding: metrics.widgetPadding,
+    gap: metrics.mainGap,
     backgroundGradient: bgGradient(),
     children: [
-      {
-        type: "stack",
-        direction: "row",
-        alignItems: "center",
-        padding: [0, 0, 2, 0],
-        children: [
-          {
-            type: "stack",
-            direction: "row",
-            alignItems: "center",
-            gap: 6,
-            children: [
-              {
-                type: "image",
-                src: "sf-symbol:calendar.badge.clock",
-                width: 12,
-                height: 12,
-                color: "rgba(159,212,255,0.72)",
-              },
-              {
-                type: "text",
-                text: TITLE,
-                font: { size: "caption1", weight: "semibold" },
-                textColor: "rgba(234,244,255,0.68)",
-                maxLines: 1,
-              },
-            ],
-          },
-          { type: "spacer" },
-          {
-            type: "text",
-            text: `${items.length} 项`,
-            font: { size: "caption2", weight: "medium" },
-            textColor: "rgba(114,132,157,0.82)",
-            maxLines: 1,
-          },
-        ],
-      },
-
+      buildHeader(TITLE, items.length, metrics.headerIconSize),
       {
         type: "stack",
         direction: "column",
-        gap: 10,
+        gap: metrics.rowGap,
         children: items.map((item, index) =>
-          buildItemRow(item, index, items.length, sharedNameFontSize)
+          buildItemRow(item, index, items.length, metrics)
         ),
       },
     ],
   };
 }
 
-function buildItemRow(item, index, total, sharedNameFontSize) {
-  const isLast = index === total - 1;
-
+function buildHeader(title, count, iconSize) {
   return {
     type: "stack",
-    direction: "column",
-    gap: 8,
+    direction: "row",
+    alignItems: "center",
+    padding: [0, 0, 1, 0],
     children: [
       {
         type: "stack",
         direction: "row",
         alignItems: "center",
-        gap: 12,
+        gap: 6,
+        children: [
+          {
+            type: "image",
+            src: "sf-symbol:calendar.badge.clock",
+            width: iconSize,
+            height: iconSize,
+            color: "rgba(186,220,255,0.76)",
+          },
+          {
+            type: "text",
+            text: title,
+            font: { size: "caption1", weight: "semibold" },
+            textColor: "rgba(235,243,255,0.74)",
+            maxLines: 1,
+          },
+        ],
+      },
+      { type: "spacer" },
+      {
+        type: "text",
+        text: `${count} 项`,
+        font: { size: "caption2", weight: "medium" },
+        textColor: "rgba(160,179,205,0.72)",
+        maxLines: 1,
+      },
+    ],
+  };
+}
+
+function buildItemRow(item, index, total, metrics) {
+  const isLast = index === total - 1;
+
+  return {
+    type: "stack",
+    direction: "column",
+    gap: metrics.separatorGap,
+    children: [
+      {
+        type: "stack",
+        direction: "row",
+        alignItems: "center",
+        gap: metrics.sideGap,
         children: [
           {
             type: "stack",
             flex: 1,
             direction: "column",
-            gap: 4,
+            gap: metrics.textGap,
             children: [
               {
                 type: "stack",
@@ -240,17 +201,19 @@ function buildItemRow(item, index, total, sharedNameFontSize) {
                 children: [
                   {
                     type: "stack",
-                    width: 5,
-                    height: 5,
+                    width: metrics.dotSize,
+                    height: metrics.dotSize,
                     backgroundColor: item.dayColor,
                     borderRadius: "auto",
+                    shadowColor: withAlpha(item.dayColor, 0.22),
+                    shadowRadius: 5,
                     children: [],
                   },
                   {
                     type: "text",
                     text: item.name,
-                    font: { size: sharedNameFontSize, weight: "bold" },
-                    textColor: "#EAF4FF",
+                    font: { size: metrics.nameSize, weight: "bold" },
+                    textColor: "#F4F8FF",
                     maxLines: 1,
                     minScale: 0.72,
                     flex: 1,
@@ -265,16 +228,16 @@ function buildItemRow(item, index, total, sharedNameFontSize) {
                 children: [
                   {
                     type: "stack",
-                    width: 5,
-                    height: 5,
+                    width: metrics.dotSize,
+                    height: metrics.dotSize,
                     children: [],
                   },
                   {
                     type: "text",
                     text: item.detail || " ",
-                    font: { size: "caption1", weight: "medium" },
-                    textColor: "#8EA2BD",
-                    maxLines: 2,
+                    font: { size: metrics.detailSize, weight: "medium" },
+                    textColor: "rgba(188,203,225,0.78)",
+                    maxLines: metrics.detailLines,
                     minScale: 0.76,
                     flex: 1,
                   },
@@ -283,7 +246,7 @@ function buildItemRow(item, index, total, sharedNameFontSize) {
             ],
           },
 
-          buildBatteryDays(item),
+          buildDaysCluster(item, metrics),
         ],
       },
 
@@ -294,7 +257,7 @@ function buildItemRow(item, index, total, sharedNameFontSize) {
               type: "stack",
               direction: "row",
               height: 1,
-              backgroundColor: "rgba(255,255,255,0.05)",
+              backgroundGradient: separatorGradient(),
               borderRadius: 99,
               children: [],
             },
@@ -303,11 +266,11 @@ function buildItemRow(item, index, total, sharedNameFontSize) {
   };
 }
 
-function buildBatteryDays(item) {
+function buildDaysCluster(item, metrics) {
   return {
     type: "stack",
-    width: 58,
-    height: 58,
+    width: metrics.daysWidth,
+    height: metrics.daysHeight,
     direction: "column",
     alignItems: "center",
     justifyContent: "center",
@@ -315,24 +278,24 @@ function buildBatteryDays(item) {
       {
         type: "text",
         text: String(item.days),
-        font: { size: 26, weight: "bold" },
+        font: { size: metrics.daysSize, weight: "bold" },
         textColor: item.dayColor,
-        shadowColor: withAlpha(item.dayColor, 0.12),
-        shadowRadius: 6,
+        shadowColor: withAlpha(item.dayColor, 0.14),
+        shadowRadius: 8,
         maxLines: 1,
       },
       {
         type: "text",
         text: item.done ? "DONE" : "DAYS",
-        font: { size: "caption2", weight: "semibold" },
-        textColor: "#9FB2C8",
+        font: { size: metrics.daysLabelSize, weight: "semibold" },
+        textColor: "rgba(170,188,212,0.82)",
         maxLines: 1,
       },
     ],
   };
 }
 
-function buildMiniDays(item) {
+function buildMiniDays(item, metrics) {
   return {
     type: "stack",
     width: 42,
@@ -344,11 +307,45 @@ function buildMiniDays(item) {
       {
         type: "text",
         text: String(item.days),
-        font: { size: "headline", weight: "bold" },
+        font: { size: Math.max(17, metrics.daysSize - 6), weight: "bold" },
         textColor: item.dayColor,
         maxLines: 1,
       },
     ],
+  };
+}
+
+function computeLayoutMetrics(items) {
+  const count = items.length;
+  const maxNameLen = Math.max(...items.map((x) => visualLength(x.name)));
+  const maxDetailLen = Math.max(...items.map((x) => visualLength(x.detail || "")));
+
+  let nameSize;
+  if (count <= 2) nameSize = 17;
+  else if (count === 3) nameSize = 16;
+  else nameSize = 15;
+
+  if (maxNameLen > 20) nameSize -= 2;
+  else if (maxNameLen > 16) nameSize -= 1;
+
+  const detailSize = count >= 4 || maxDetailLen > 16 ? "caption2" : "caption1";
+
+  return {
+    widgetPadding: count >= 4 ? [16, 16, 14, 16] : [18, 18, 16, 18],
+    mainGap: count >= 4 ? 10 : 12,
+    rowGap: count >= 4 ? 8 : 10,
+    separatorGap: count >= 4 ? 7 : 8,
+    sideGap: count >= 4 ? 10 : 12,
+    textGap: count >= 4 ? 3 : 4,
+    dotSize: count >= 4 ? 4 : 5,
+    headerIconSize: count >= 4 ? 11 : 12,
+    nameSize: Math.max(12, nameSize),
+    detailSize,
+    detailLines: count >= 4 ? 1 : 2,
+    daysWidth: count >= 4 ? 52 : 58,
+    daysHeight: count >= 4 ? 50 : 58,
+    daysSize: count >= 4 ? 23 : 26,
+    daysLabelSize: count >= 4 ? "caption2" : "caption2",
   };
 }
 
@@ -384,16 +381,6 @@ function collectItems(env, tzOffset) {
   return out;
 }
 
-function computeSharedNameFontSize(items) {
-  const maxLen = Math.max(...items.map((x) => visualLength(x.name)));
-
-  if (maxLen <= 8) return 17;
-  if (maxLen <= 12) return 16;
-  if (maxLen <= 16) return 15;
-  if (maxLen <= 20) return 14;
-  return 13;
-}
-
 function visualLength(text) {
   let len = 0;
   for (const ch of String(text || "")) {
@@ -403,20 +390,34 @@ function visualLength(text) {
 }
 
 function urgencyColor(days, done) {
-  if (done) return "#A1AFC3";
-  if (days <= 3) return "#F87171";
+  if (done) return "#A8B7CC";
+  if (days <= 3) return "#FB7185";
   if (days <= 7) return "#FB923C";
   if (days <= 15) return "#FBBF24";
-  return "#34D399";
+  return "#4ADE80";
 }
 
 function bgGradient() {
   return {
     type: "linear",
-    colors: ["#07101B", "#0B1525", "#111D31", "#18263C"],
-    stops: [0, 0.35, 0.72, 1],
+    colors: ["#07101A", "#0A1730", "#111D3F", "#1A2550"],
+    stops: [0, 0.34, 0.7, 1],
     startPoint: { x: 0, y: 0 },
     endPoint: { x: 1, y: 1 },
+  };
+}
+
+function separatorGradient() {
+  return {
+    type: "linear",
+    colors: [
+      "rgba(255,255,255,0)",
+      "rgba(170,202,255,0.14)",
+      "rgba(255,255,255,0)"
+    ],
+    stops: [0, 0.5, 1],
+    startPoint: { x: 0, y: 0 },
+    endPoint: { x: 1, y: 0 },
   };
 }
 
