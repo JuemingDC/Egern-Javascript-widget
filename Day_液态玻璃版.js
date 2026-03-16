@@ -1,12 +1,12 @@
 /**
- * 小日子
- * 农历信息 + 四类节日倒计时（法定 / 节气 / 民俗 / 国际）
+ * 小日子（液态玻璃版）
+ * 修改说明：
+ * 1. 去掉所有徽章 / 胶囊 / 边框式背景
+ * 2. 提升文字对比度，强化主信息可读性
+ * 3. 背景改为更克制的液态玻璃渐变
+ * 4. 保留原有农历与四类节日倒计时逻辑
  *
- * 在原版紧凑布局基础上调整：
- * 1. 去掉大部分不必要的边框与厚重底板
- * 2. 仅保留轻量液态玻璃感
- * 3. 提高文字对比度与层级，增强可读性
- * 4. 保持原版排布密度，避免内容显示不全
+ * 基于用户上传脚本修改
  */
 
 // ── 工具 ─────────────────────────────────────────────
@@ -178,118 +178,120 @@ export default async function(ctx){
   function dds(arr){return arr.map(function(x){return dateDiff(today,x[1]);});}
   var dL=dds(LEG), dT=dds(TRM), dF=dds(FOL), dI=dds(INT);
 
-  // ── 颜色 ───
+  // ── 颜色：液态玻璃高对比方案 ───
   var AC={
-    legal:"#FF95A9",
-    term :"#71E7C1",
+    legal:"#FF8D8D",
+    term :"#71F2C8",
     folk :"#FFD98A",
-    intl :"#8FCBFF",
-    text :"rgba(255,255,255,0.98)",
-    dim  :"rgba(255,255,255,0.80)",
-    faint:"rgba(255,255,255,0.48)",
-    sep  :"rgba(255,255,255,0.12)",
-    glass:"rgba(255,255,255,0.065)",
-    glassSoft:"rgba(255,255,255,0.045)",
-    glassTop:"rgba(255,255,255,0.10)",
+    intl :"#8BC7FF",
+    main :"rgba(255,255,255,0.96)",
+    sub  :"rgba(255,255,255,0.82)",
+    dim  :"rgba(255,255,255,0.64)",
+    faint:"rgba(255,255,255,0.34)",
+    sep  :"rgba(255,255,255,0.14)",
   };
 
-  // ── 节日胶囊 ───
-  // 去掉厚边框，只保留轻玻璃底和文字层级
-  function chip(name, days, accent){
-    var today0=days===0;
-    var nameColor=today0?AC.text:AC.dim;
-    var daysLabel=today0?"今天":days+"天";
-    var daysColor=today0?accent:"rgba(255,255,255,0.62)";
-    return row([
-      t(name, 10, today0?"semibold":"regular", nameColor),
-      t(daysLabel, 10, today0?"bold":"regular", daysColor, {fontFamily:"Menlo"}),
-    ],{
-      gap:4,
-      padding:[3,7,3,7],
-      backgroundColor: today0?(accent+"22"):AC.glassSoft,
-      borderRadius:8,
-    });
+  // ── 文本状态：不使用任何框，仅用颜色和字重区分 ───
+  function dayText(days, accent){
+    if(days===0){
+      return {
+        label:"今天",
+        color:accent,
+        weight:"bold"
+      };
+    }
+    return {
+      label:days+"天",
+      color:"rgba(255,255,255,0.72)",
+      weight:"semibold"
+    };
   }
 
-  // ── 分类标签 ───
-  // 去掉 badge 底板，仅保留图标 + 文字
+  // ── 单个节日项：名称 + 竖分隔 + 天数 ───
+  function festItem(name, days, accent){
+    var dt=dayText(days, accent);
+    return row([
+      t(name, 10, days===0?"semibold":"regular", days===0?AC.main:AC.dim),
+      t("|", 9, "regular", AC.faint),
+      t(dt.label, 10, dt.weight, dt.color, {fontFamily:"Menlo"}),
+    ],{gap:4});
+  }
+
+  // ── 行标签：仅图标 + 标签文字，无框 ───
   function badge(sfSym, label, accent){
     return row([
       ic(sfSym, 10, accent),
       t(label, 10, "semibold", accent),
-    ],{gap:3});
+    ],{gap:4});
   }
 
-  // ── 整行（标签 + 三个胶囊）───
-  // 保留极轻液态玻璃感，但不加边框
+  // ── 整行 ───
   function festRow(sfSym, label, accent, items, ds){
     return row([
       badge(sfSym, label, accent),
-      chip(items[0][0], ds[0], accent),
-      chip(items[1][0], ds[1], accent),
-      chip(items[2][0], ds[2], accent),
+      sp(5),
+      festItem(items[0][0], ds[0], accent),
+      sp(7),
+      festItem(items[1][0], ds[1], accent),
+      sp(7),
+      festItem(items[2][0], ds[2], accent),
       sp(),
-    ],{
-      gap:5,
-      padding:[6,8,6,8],
-      backgroundColor:AC.glass,
-      borderRadius:12,
-    });
+    ],{alignItems:"center"});
   }
 
   // ── 头部 ───
   var lunarDay  = L ? L.iDay  : "--";
   var lunarMon  = L ? L.iMon  : "--";
   var gzYr      = L ? L.gY+"年" : "";
-  var gzLine    = L ? L.gM+"月 "+L.gD+"日   "+L.ani+"年" : "";
+  var gzLine    = L ? L.gM+"月 · "+L.gD+"日 · "+L.ani+"年" : "";
   var astro     = L ? L.astro : "";
 
   var headerLeft = col([
-    t(lunarDay, 26, "bold", AC.text),
+    t(lunarDay, 27, "bold", AC.main),
     row([
-      t(lunarMon, 9, "regular", AC.dim),
-      t("·", 9, "regular", AC.faint),
-      t(gzYr, 9, "regular", AC.dim),
-    ],{gap:3}),
+      t(lunarMon, 10, "medium", AC.sub),
+      t("·", 10, "regular", AC.faint),
+      t(gzYr, 10, "medium", AC.sub),
+    ],{gap:4}),
   ],{gap:3});
 
   var headerRight = col([
     row([
-      ic("calendar", 12, "rgba(255,255,255,0.62)"),
-      t((now.getMonth()+1)+"月"+now.getDate()+"日", 15, "semibold", AC.text),
-    ],{gap:3}),
-    t("星期"+wkCN+"   "+astro, 10, "regular", "rgba(255,255,255,0.82)"),
-    t(gzLine, 9, "regular", "rgba(255,255,255,0.52)"),
+      ic("calendar", 12, "rgba(255,255,255,0.72)"),
+      t((now.getMonth()+1)+"月"+now.getDate()+"日", 15, "semibold", AC.main),
+    ],{gap:4}),
+    t("星期"+wkCN+" · "+astro, 10, "medium", AC.sub),
+    t(gzLine, 9, "regular", AC.dim),
   ],{gap:2, alignItems:"end"});
 
-  // 头部只加一层很轻的玻璃感，不要厚卡片
-  var header = row([headerLeft, sp(), headerRight],{
-    alignItems:"center",
-    padding:[8,9,8,9],
-    backgroundColor:"rgba(255,255,255,0.055)",
-    borderRadius:14,
-  });
+  var header = row([headerLeft, sp(), headerRight],{alignItems:"center"});
 
-  // ── 分隔线 ───
-  var divider = row([sp()],{height:1, backgroundColor:AC.sep});
+  // ── 细分隔线 ───
+  function divider(){
+    return row([sp()],{height:1, backgroundColor:AC.sep});
+  }
 
-  // ── 输出 ───
   return {
     type:"widget",
-    padding:[10,11,9,11],
+    padding:[11,12,10,12],
     gap:0,
     backgroundGradient:{
       type:"linear",
-      colors:["#0D1428","#14203A","#1A2846","#22314F"],
-      stops:[0,0.36,0.72,1],
+      colors:[
+        "rgba(16,24,48,0.96)",
+        "rgba(34,52,92,0.90)",
+        "rgba(62,104,162,0.84)",
+        "rgba(164,205,255,0.34)"
+      ],
+      stops:[0,0.42,0.82,1],
       startPoint:{x:0,y:0},
       endPoint:{x:1,y:1},
     },
     children:[
       header,
-      sp(5),
-      divider,
-      sp(5),
+      sp(6),
+      divider(),
+      sp(6),
       festRow("flag.fill",                 "法定", AC.legal, LEG, dL),
       sp(5),
       festRow("leaf.fill",                 "节气", AC.term,  TRM, dT),
