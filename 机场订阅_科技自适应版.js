@@ -1,4 +1,4 @@
-// 机场订阅小组件（Egern 严格 DSL 版 / 液态玻璃艺术风）
+// 机场订阅小组件（Egern 严格 DSL 版 / Apple 液态玻璃风）
 // 环境变量：NAME1/URL1/RESET1 ... NAME8/URL8/RESET8
 
 export default async function (ctx) {
@@ -30,68 +30,63 @@ export default async function (ctx) {
     padding: style.widgetPadding,
     gap: style.widgetGap,
     refreshAfter,
-    backgroundGradient: {
-      type: "linear",
-      colors: [
-        { light: "#F8FBFF", dark: "#07111B" },
-        { light: "#EEF6FF", dark: "#0B1730" },
-        { light: "#F6F0FF", dark: "#111B3E" },
-        { light: "#EAFBFF", dark: "#102747" }
-      ],
-      stops: [0, 0.35, 0.72, 1],
-      startPoint: { x: 0, y: 0 },
-      endPoint: { x: 1, y: 1 }
-    },
+    backgroundGradient: buildAppleBackground(),
     children: [
       buildHeader(style),
       {
         type: "stack",
         direction: "column",
         gap: style.listGap,
-        children: results.map((item, index) => buildRow(item, style, index, results.length))
-      }
-    ]
+        children: results.map((item, index) => buildRow(item, style, index, results.length)),
+      },
+    ],
+  };
+}
+
+function buildAppleBackground() {
+  return {
+    type: "linear",
+    colors: [
+      { light: "#F9FBFF", dark: "#08111B" },
+      { light: "#F3F7FD", dark: "#0B1622" },
+      { light: "#EEF4FB", dark: "#102031" },
+      { light: "#F7F9FC", dark: "#15253A" },
+    ],
+    stops: [0, 0.34, 0.72, 1],
+    startPoint: { x: 0, y: 0 },
+    endPoint: { x: 1, y: 1 },
   };
 }
 
 function buildEmptyWidget(refreshAfter) {
   return {
     type: "widget",
-    padding: [16, 16, 16, 16],
-    gap: 10,
+    padding: [15, 15, 15, 15],
+    gap: 8,
     refreshAfter,
-    backgroundGradient: {
-      type: "linear",
-      colors: [
-        { light: "#F8FBFF", dark: "#07111B" },
-        { light: "#EEF6FF", dark: "#0B1730" },
-        { light: "#F6F0FF", dark: "#111B3E" }
-      ],
-      startPoint: { x: 0, y: 0 },
-      endPoint: { x: 1, y: 1 }
-    },
+    backgroundGradient: buildAppleBackground(),
     children: [
       {
         type: "text",
-        text: "机场订阅",
-        font: { size: "headline", weight: "bold" },
-        textColor: { light: "#16253A", dark: "#ECF5FF" }
+        text: "订阅",
+        font: { size: "caption1", weight: "semibold" },
+        textColor: { light: "#76849A", dark: "#A2B1C6" },
       },
       {
         type: "text",
         text: "请配置 URL1 环境变量",
         font: { size: "subheadline", weight: "semibold" },
-        textColor: { light: "#8D3C7A", dark: "#FF9EE8" }
+        textColor: { light: "#314255", dark: "#E5EDF7" },
       },
       {
         type: "text",
         text: "支持：NAME1/URL1/RESET1 ... NAME8/URL8/RESET8",
-        font: { size: "caption1" },
-        textColor: { light: "#62728A", dark: "#9CB0C8" },
+        font: { size: "caption2" },
+        textColor: { light: "#7F8EA4", dark: "#91A1B8" },
         maxLines: 2,
-        minScale: 0.8
-      }
-    ]
+        minScale: 0.8,
+      },
+    ],
   };
 }
 
@@ -99,27 +94,13 @@ function buildHeader(style) {
   return {
     type: "stack",
     direction: "row",
-    alignItems: "center",
+    alignItems: "start",
     children: [
       {
-        type: "stack",
-        direction: "column",
-        gap: 2,
-        children: [
-          {
-            type: "text",
-            text: "AIRPORT FLOW",
-            font: { size: style.kickerFont, weight: "semibold" },
-            textColor: { light: "#7D7AAE", dark: "#8FA4FF" },
-            opacity: 0.88
-          },
-          {
-            type: "text",
-            text: "订阅流量",
-            font: { size: style.headerFont, weight: "bold" },
-            textColor: { light: "#15263C", dark: "#EEF6FF" }
-          }
-        ]
+        type: "text",
+        text: "订阅",
+        font: { size: style.headerFont, weight: "semibold" },
+        textColor: { light: "#7C8A9E", dark: "#A5B4C8" },
       },
       { type: "spacer" },
       {
@@ -127,9 +108,9 @@ function buildHeader(style) {
         date: new Date().toISOString(),
         format: "time",
         font: { size: style.metaFont, weight: "medium" },
-        textColor: { light: "#6F7F96", dark: "#98ABC4" }
-      }
-    ]
+        textColor: { light: "#98A5B7", dark: "#8D9CB1" },
+      },
+    ],
   };
 }
 
@@ -144,38 +125,33 @@ function buildRow(item, style, index, total) {
           type: "stack",
           direction: "row",
           alignItems: "center",
-          gap: 8,
+          gap: style.nameGap,
           children: [
-            {
-              type: "image",
-              src: "sf-symbol:smallcircle.filled.circle.fill",
-              width: style.dotSize,
-              height: style.dotSize,
-              color: { light: "#FF7AA8", dark: "#FF99C7" }
-            },
+            buildOrb({ light: "#D1D8E3", dark: "#A7B3C6" }, style),
             {
               type: "text",
               text: item.name,
               flex: 1,
               font: { size: style.nameFont, weight: "bold" },
-              textColor: { light: "#16253A", dark: "#F4F8FF" },
+              textColor: { light: "#243446", dark: "#F1F5FA" },
               maxLines: 1,
-              minScale: 0.7
+              minScale: 0.72,
             },
             {
               type: "text",
               text: "获取失败",
-              font: { size: style.infoFont, weight: "semibold" },
-              textColor: { light: "#C24B80", dark: "#FFA8D1" }
-            }
-          ]
+              font: { size: style.infoFont, weight: "medium" },
+              textColor: { light: "#8B97A8", dark: "#A9B3C2" },
+            },
+          ],
         },
-        buildDivider(style, index, total)
-      ]
+        buildDivider(style, index, total),
+      ],
     };
   }
 
   const tone = getUsageTone(item.percent);
+  const meta = getMetaText(item);
 
   return {
     type: "stack",
@@ -186,32 +162,27 @@ function buildRow(item, style, index, total) {
         type: "stack",
         direction: "row",
         alignItems: "center",
-        gap: 8,
+        gap: style.nameGap,
         children: [
-          {
-            type: "image",
-            src: "sf-symbol:smallcircle.filled.circle.fill",
-            width: style.dotSize,
-            height: style.dotSize,
-            color: tone.dotColor
-          },
+          buildOrb(tone.dotColor, style),
           {
             type: "text",
             text: item.name,
             flex: 1,
             font: { size: style.nameFont, weight: "bold" },
-            textColor: { light: "#14253A", dark: "#F5F8FF" },
+            textColor: { light: "#233346", dark: "#F5F8FD" },
             maxLines: 1,
-            minScale: 0.7
+            minScale: 0.72,
           },
           {
             type: "text",
             text: `${item.percent.toFixed(1)}%`,
-            font: { size: style.percentFont, weight: "bold" },
-            textColor: tone.percentColor
-          }
-        ]
+            font: { size: style.percentFont, weight: "semibold" },
+            textColor: tone.percentColor,
+          },
+        ],
       },
+      buildArtBar(item.percent, tone, style),
       {
         type: "stack",
         direction: "row",
@@ -222,23 +193,51 @@ function buildRow(item, style, index, total) {
             text: `${bytesToSize(item.used)} / ${bytesToSize(item.totalBytes)}`,
             flex: 1,
             font: { size: style.infoFont, weight: "medium" },
-            textColor: { light: "#45556C", dark: "#B6C6DB" },
+            textColor: { light: "#607084", dark: "#B0BDCD" },
             maxLines: 1,
-            minScale: 0.72
+            minScale: 0.72,
           },
           {
             type: "text",
-            text: getMetaText(item).text,
+            text: meta.text,
             font: { size: style.metaFont, weight: "medium" },
-            textColor: getMetaText(item).color,
+            textColor: meta.color,
             maxLines: 1,
-            minScale: 0.72
-          }
-        ]
+            minScale: 0.72,
+          },
+        ],
       },
-      buildArtBar(item.percent, tone, style),
-      buildDivider(style, index, total)
-    ]
+      buildDivider(style, index, total),
+    ],
+  };
+}
+
+function buildOrb(color, style) {
+  return {
+    type: "stack",
+    width: style.dotBox,
+    height: style.dotBox,
+    alignItems: "center",
+    justifyContent: "center",
+    children: [
+      {
+        type: "stack",
+        width: style.dotSize,
+        height: style.dotSize,
+        backgroundGradient: {
+          type: "linear",
+          colors: [
+            { light: "#FFFFFFE6", dark: "#FFFFFF44" },
+            color,
+          ],
+          stops: [0, 1],
+          startPoint: { x: 0, y: 0 },
+          endPoint: { x: 1, y: 1 },
+        },
+        borderRadius: 99,
+        children: [],
+      },
+    ],
   };
 }
 
@@ -257,18 +256,18 @@ function buildDivider(style, index, total) {
           type: "linear",
           colors: [
             { light: "#FFFFFF00", dark: "#FFFFFF00" },
-            { light: "#DDE7FFAA", dark: "#8AA4FF66" },
-            { light: "#CFF7FFAA", dark: "#74F0FF66" },
-            { light: "#FFFFFF00", dark: "#FFFFFF00" }
+            { light: "#D9E3EE70", dark: "#50627A44" },
+            { light: "#E8EEF670", dark: "#62758D30" },
+            { light: "#FFFFFF00", dark: "#FFFFFF00" },
           ],
-          stops: [0, 0.24, 0.76, 1],
+          stops: [0, 0.22, 0.78, 1],
           startPoint: { x: 0, y: 0 },
-          endPoint: { x: 1, y: 0 }
+          endPoint: { x: 1, y: 0 },
         },
         borderRadius: 99,
-        children: []
-      }
-    ]
+        children: [],
+      },
+    ],
   };
 }
 
@@ -276,12 +275,11 @@ function buildArtBar(percent, tone, style) {
   const clamped = clamp(percent, 0, 100);
   const filled = Math.max(0.0001, clamped);
   const empty = Math.max(0.0001, 100 - clamped);
-  const glowFlex = Math.max(4, Math.min(12, Math.round(clamped / 9) || 4));
 
   return {
     type: "stack",
     direction: "column",
-    gap: 3,
+    gap: style.barGap,
     children: [
       {
         type: "stack",
@@ -290,42 +288,26 @@ function buildArtBar(percent, tone, style) {
           {
             type: "stack",
             flex: filled,
-            height: style.glowHeight,
+            height: style.sheenHeight,
             backgroundGradient: {
               type: "linear",
-              colors: tone.glowColors,
+              colors: tone.sheenColors,
               stops: [0, 0.5, 1],
               startPoint: { x: 0, y: 0 },
-              endPoint: { x: 1, y: 0 }
+              endPoint: { x: 1, y: 0 },
             },
             borderRadius: 99,
-            children: [
-              {
-                type: "stack",
-                direction: "row",
-                children: [
-                  { type: "spacer" },
-                  {
-                    type: "stack",
-                    flex: glowFlex,
-                    height: style.glowHeight,
-                    backgroundColor: { light: "#FFFFFFB8", dark: "#FFFFFF55" },
-                    borderRadius: 99,
-                    children: []
-                  }
-                ]
-              }
-            ]
+            children: [],
           },
           {
             type: "stack",
             flex: empty,
-            height: style.glowHeight,
-            backgroundColor: { light: "#FFFFFF12", dark: "#FFFFFF08" },
+            height: style.sheenHeight,
+            backgroundColor: { light: "#FFFFFF20", dark: "#FFFFFF08" },
             borderRadius: 99,
-            children: []
-          }
-        ]
+            children: [],
+          },
+        ],
       },
       {
         type: "stack",
@@ -338,12 +320,28 @@ function buildArtBar(percent, tone, style) {
             backgroundGradient: {
               type: "linear",
               colors: tone.barColors,
-              stops: [0, 0.38, 1],
+              stops: [0, 0.42, 1],
               startPoint: { x: 0, y: 0 },
-              endPoint: { x: 1, y: 0 }
+              endPoint: { x: 1, y: 0 },
             },
             borderRadius: 99,
-            children: []
+            children: [
+              {
+                type: "stack",
+                direction: "row",
+                children: [
+                  {
+                    type: "stack",
+                    flex: Math.max(1, Math.round(filled * 0.2)),
+                    height: style.barHeight,
+                    backgroundColor: { light: "#FFFFFF55", dark: "#FFFFFF18" },
+                    borderRadius: 99,
+                    children: [],
+                  },
+                  { type: "spacer" },
+                ],
+              },
+            ],
           },
           {
             type: "stack",
@@ -352,18 +350,18 @@ function buildArtBar(percent, tone, style) {
             backgroundGradient: {
               type: "linear",
               colors: [
-                { light: "#FFFFFF55", dark: "#FFFFFF12" },
-                { light: "#E4EEFA55", dark: "#24344F66" }
+                { light: "#FFFFFF70", dark: "#1A273666" },
+                { light: "#E7EDF540", dark: "#24364755" },
               ],
               startPoint: { x: 0, y: 0 },
-              endPoint: { x: 1, y: 0 }
+              endPoint: { x: 1, y: 0 },
             },
             borderRadius: 99,
-            children: []
-          }
-        ]
-      }
-    ]
+            children: [],
+          },
+        ],
+      },
+    ],
   };
 }
 
@@ -379,7 +377,7 @@ async function fetchInfo(ctx, slot) {
             headers,
             timeout: 12000,
             redirect: "follow",
-            credentials: "omit"
+            credentials: "omit",
           });
 
           const raw = response.headers.get("subscription-userinfo") || "";
@@ -417,8 +415,8 @@ async function fetchInfo(ctx, slot) {
 
 const UA_LIST = [
   { "User-Agent": "Quantumult X" },
-  { "User-Agent": "clash-verge-rev/2.3.1", "Accept": "application/x-yaml,text/plain,*/*" },
-  { "User-Agent": "mihomo/1.19.3", "Accept": "application/x-yaml,text/plain,*/*" }
+  { "User-Agent": "clash-verge-rev/2.3.1", Accept: "application/x-yaml,text/plain,*/*" },
+  { "User-Agent": "mihomo/1.19.3", Accept: "application/x-yaml,text/plain,*/*" },
 ];
 
 function buildVariants(url) {
@@ -461,19 +459,21 @@ function getStyle(count, family) {
   const veryDense = count >= 7;
 
   return {
-    widgetPadding: compact ? [12, 12, 12, 12] : dense ? [12, 13, 12, 13] : [14, 15, 14, 15],
-    widgetGap: compact ? 8 : 10,
-    listGap: veryDense ? 6 : dense ? 8 : 10,
+    widgetPadding: compact ? [11, 12, 11, 12] : dense ? [12, 13, 12, 13] : [13, 14, 13, 14],
+    widgetGap: compact ? 6 : 7,
+    listGap: veryDense ? 5 : dense ? 7 : 9,
     rowGap: veryDense ? 3 : 4,
     dividerTop: veryDense ? 4 : 6,
-    headerFont: compact ? "subheadline" : dense ? "headline" : "title3",
-    kickerFont: compact ? "caption2" : "caption1",
+    headerFont: compact ? "caption2" : "caption1",
     metaFont: veryDense ? "caption2" : "caption1",
     nameFont: veryDense ? "caption1" : dense ? "subheadline" : "headline",
     infoFont: veryDense ? "caption2" : "caption1",
-    percentFont: veryDense ? "caption1" : dense ? "subheadline" : "headline",
-    dotSize: veryDense ? 7 : 8,
-    glowHeight: veryDense ? 3 : 4,
+    percentFont: veryDense ? "caption2" : dense ? "caption1" : "subheadline",
+    nameGap: veryDense ? 4 : 6,
+    dotBox: veryDense ? 8 : 10,
+    dotSize: veryDense ? 4 : 5,
+    barGap: 2,
+    sheenHeight: veryDense ? 1 : 2,
     barHeight: veryDense ? 4 : dense ? 5 : 6,
   };
 }
@@ -481,49 +481,49 @@ function getStyle(count, family) {
 function getUsageTone(percent) {
   if (percent >= 90) {
     return {
-      dotColor: { light: "#FF73B3", dark: "#FF98CE" },
-      percentColor: { light: "#C34A8C", dark: "#FFB4DE" },
-      glowColors: [
-        { light: "#FFD7EC", dark: "#FF9BD466" },
-        { light: "#FF9CD1", dark: "#FF7FC4AA" },
-        { light: "#FF73B3", dark: "#FF73B3CC" }
+      dotColor: { light: "#D1908A", dark: "#F1AAA3" },
+      percentColor: { light: "#A56A64", dark: "#F3B8B0" },
+      sheenColors: [
+        { light: "#FFF2F0", dark: "#FFB9A922" },
+        { light: "#F5D0C8", dark: "#FFAF9D55" },
+        { light: "#DFA096", dark: "#E8A29A88" },
       ],
       barColors: [
-        { light: "#FFC8E6", dark: "#FF98CE" },
-        { light: "#FF94CB", dark: "#FF73B3" },
-        { light: "#FF73B3", dark: "#E55EFF" }
-      ]
+        { light: "#F8E3DF", dark: "#9E6C69" },
+        { light: "#E9C1B9", dark: "#C38C83" },
+        { light: "#D79A92", dark: "#E5A39B" },
+      ],
     };
   }
   if (percent >= 70) {
     return {
-      dotColor: { light: "#FF9E59", dark: "#FFC07F" },
-      percentColor: { light: "#C97835", dark: "#FFD29F" },
-      glowColors: [
-        { light: "#FFE7CF", dark: "#FFC07F55" },
-        { light: "#FFC992", dark: "#FFB36ECC" },
-        { light: "#FF9E59", dark: "#FF9E59CC" }
+      dotColor: { light: "#D3B07E", dark: "#E6C18A" },
+      percentColor: { light: "#9A7A4B", dark: "#EEC88F" },
+      sheenColors: [
+        { light: "#FFF7EB", dark: "#E6C18A22" },
+        { light: "#F3DAB2", dark: "#E2B56A55" },
+        { light: "#D9B27B", dark: "#DDAE72AA" },
       ],
       barColors: [
-        { light: "#FFE1BF", dark: "#FFD39A" },
-        { light: "#FFC07A", dark: "#FFB36E" },
-        { light: "#FF9E59", dark: "#FF8A5C" }
-      ]
+        { light: "#F7EAD1", dark: "#937247" },
+        { light: "#EACB9A", dark: "#B98D54" },
+        { light: "#D9B27B", dark: "#DEAF71" },
+      ],
     };
   }
   return {
-    dotColor: { light: "#6B8CFF", dark: "#8DDCFF" },
-    percentColor: { light: "#5A67D8", dark: "#B2EEFF" },
-    glowColors: [
-      { light: "#E4E7FF", dark: "#7E8EFF44" },
-      { light: "#B9D8FF", dark: "#6FA2FF99" },
-      { light: "#8AE7FF", dark: "#72EEFFCC" }
+    dotColor: { light: "#95AEC9", dark: "#A9C8E7" },
+    percentColor: { light: "#6B7F96", dark: "#C6DCF3" },
+    sheenColors: [
+      { light: "#F7FAFE", dark: "#7EA6CF18" },
+      { light: "#D8E6F4", dark: "#8AB6E033" },
+      { light: "#B8CFE6", dark: "#9FC1E899" },
     ],
     barColors: [
-      { light: "#D8D9FF", dark: "#7C8DFF" },
-      { light: "#A0C4FF", dark: "#62B8FF" },
-      { light: "#86F1FF", dark: "#72EEFF" }
-    ]
+      { light: "#EFF4FA", dark: "#526A84" },
+      { light: "#D4E0EC", dark: "#7694B1" },
+      { light: "#B9CFE5", dark: "#A5C3E2" },
+    ],
   };
 }
 
@@ -533,18 +533,18 @@ function getMetaText(item) {
     if (daysLeft < 0) {
       return {
         text: "已到期",
-        color: { light: "#C24B80", dark: "#FFADD3" }
+        color: { light: "#9DA8B7", dark: "#B8C2CE" },
       };
     }
     if (daysLeft <= 7) {
       return {
         text: `${daysLeft}天后到期`,
-        color: { light: "#C97835", dark: "#FFD29F" }
+        color: { light: "#96724E", dark: "#D7B387" },
       };
     }
     return {
       text: formatDate(item.expire),
-      color: { light: "#6F7F96", dark: "#97AAC5" }
+      color: { light: "#92A0B3", dark: "#97A6BA" },
     };
   }
 
@@ -552,14 +552,14 @@ function getMetaText(item) {
     return {
       text: `${item.remainDays}天重置`,
       color: item.remainDays <= 3
-        ? { light: "#C97835", dark: "#FFD29F" }
-        : { light: "#6F7F96", dark: "#97AAC5" }
+        ? { light: "#96724E", dark: "#D7B387" }
+        : { light: "#92A0B3", dark: "#97A6BA" },
     };
   }
 
   return {
     text: "",
-    color: { light: "#6F7F96", dark: "#97AAC5" }
+    color: { light: "#92A0B3", dark: "#97A6BA" },
   };
 }
 
