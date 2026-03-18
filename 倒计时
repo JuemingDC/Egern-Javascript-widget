@@ -36,15 +36,6 @@ export default async function(ctx) {
     return `${m}.${d}`;
   }
 
-  function relativeText(days) {
-    if (days === null) return "pending";
-    if (days === 0) return "today";
-    if (days === 1) return "tomorrow";
-    if (days <= 7) return `in ${days} days`;
-    if (days <= 30) return `${days} days left`;
-    return "scheduled";
-  }
-
   function getItems() {
     const list = [];
 
@@ -96,64 +87,47 @@ export default async function(ctx) {
   function tone(days) {
     if (days === null) {
       return {
-        strong: { light: "#8E8174", dark: "#D7C5B3" },
         title: { light: "#231D18", dark: "#F4E8DC" },
-        detail: { light: "#887B6D", dark: "#B8A998" },
-        meta: { light: "#8F8172", dark: "#C9B8A7" },
+        detail: { light: "#8A7C6D", dark: "#B8A998" },
+        date: { light: "#8F8172", dark: "#C9B8A7" },
+        strong: { light: "#8E8174", dark: "#D7C5B3" },
         divider: { light: "#D8CCBE", dark: "#51473D" }
       };
     }
     if (days <= 3) {
       return {
-        strong: { light: "#C95A4B", dark: "#F1A79B" },
         title: { light: "#231D18", dark: "#F4E8DC" },
         detail: { light: "#966B64", dark: "#D0A59C" },
-        meta: { light: "#A55E52", dark: "#E7B4AA" },
+        date: { light: "#A55E52", dark: "#E7B4AA" },
+        strong: { light: "#C95A4B", dark: "#F1A79B" },
         divider: { light: "#E4B9AE", dark: "#6A4038" }
       };
     }
     if (days <= 14) {
       return {
-        strong: { light: "#C18A38", dark: "#E6C27F" },
         title: { light: "#231D18", dark: "#F4E8DC" },
         detail: { light: "#8B7861", dark: "#C8B391" },
-        meta: { light: "#92703E", dark: "#E4C58C" },
+        date: { light: "#92703E", dark: "#E4C58C" },
+        strong: { light: "#C18A38", dark: "#E6C27F" },
         divider: { light: "#DFC9A6", dark: "#655038" }
       };
     }
     if (days <= 30) {
       return {
-        strong: { light: "#7E95B3", dark: "#C0CCDB" },
         title: { light: "#231D18", dark: "#F4E8DC" },
         detail: { light: "#7C808A", dark: "#AEB7C4" },
-        meta: { light: "#6C7D97", dark: "#B7C5D7" },
+        date: { light: "#6C7D97", dark: "#B7C5D7" },
+        strong: { light: "#7E95B3", dark: "#C0CCDB" },
         divider: { light: "#C8D3E2", dark: "#485466" }
       };
     }
     return {
-      strong: { light: "#9AA3B1", dark: "#C6CDD7" },
       title: { light: "#231D18", dark: "#F4E8DC" },
       detail: { light: "#8B9098", dark: "#AAB1BA" },
-      meta: { light: "#7F8795", dark: "#BBC3CF" },
+      date: { light: "#7F8795", dark: "#BBC3CF" },
+      strong: { light: "#9AA3B1", dark: "#C6CDD7" },
       divider: { light: "#D8DCE2", dark: "#474C55" }
     };
-  }
-
-  function colorToHex(colorObj, mode) {
-    const value = colorObj[mode] || colorObj.light || "#999999";
-    return value;
-  }
-
-  function makeNumberBackground(days, strongColor) {
-    const text = days === null ? "--" : String(days);
-    const hex = colorToHex(strongColor, "light");
-    const svg =
-      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 220" preserveAspectRatio="xMidYMid slice">` +
-      `<rect width="100%" height="100%" fill="transparent"/>` +
-      `<text x="200" y="120" text-anchor="middle" dominant-baseline="middle" font-size="132" font-family="-apple-system,BlinkMacSystemFont,'SF Pro Display',sans-serif" font-weight="800" fill="${hex}" fill-opacity="0.12">${text}</text>` +
-      `</svg>`;
-
-    return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
   }
 
   function itemBlock(item, compact) {
@@ -163,55 +137,70 @@ export default async function(ctx) {
       type: "stack",
       direction: "column",
       flex: 1,
-      alignItems: "center",
-      padding: compact ? [10, 8, 10, 8] : [12, 10, 12, 10],
-      backgroundImage: makeNumberBackground(item.days, t.strong),
+      padding: compact ? [8, 0, 8, 0] : [10, 0, 10, 0],
       children: [
         {
           type: "spacer"
         },
         {
-          type: "text",
-          text: item.name,
-          font: { size: compact ? "title3" : "title2", weight: "bold" },
-          textColor: t.title,
-          textAlign: "center",
-          maxLines: 1,
-          minScale: 0.52
-        },
-        {
-          type: "text",
-          text: item.detail || " ",
-          font: { size: compact ? "caption1" : "footnote", weight: "regular" },
-          textColor: t.detail,
-          textAlign: "center",
-          maxLines: 1,
-          minScale: 0.68
-        },
-        {
-          type: "spacer",
-          length: compact ? 4 : 6
-        },
-        {
-          type: "text",
-          text: `${item.shortDate} · ${relativeText(item.days)}`,
-          font: { size: compact ? "caption1" : "footnote", weight: "medium" },
-          textColor: t.meta,
-          textAlign: "center",
-          maxLines: 1,
-          minScale: 0.7
-        },
-        {
-          type: "spacer",
-          length: compact ? 2 : 4
-        },
-        {
-          type: "text",
-          text: item.days === null ? "-- d" : `${item.days}d`,
-          font: { size: "caption2", weight: "semibold" },
-          textColor: t.strong,
-          textAlign: "center",
-          maxLines: 1
+          type: "stack",
+          direction: "row",
+          alignItems: "center",
+          children: [
+            {
+              type: "stack",
+              direction: "column",
+              flex: 1,
+              alignItems: "start",
+              gap: 0,
+              children: [
+                {
+                  type: "text",
+                  text: item.name,
+                  font: { size: compact ? "headline" : "title3", weight: "bold" },
+                  textColor: t.title,
+                  textAlign: "left",
+                  maxLines: 1,
+                  minScale: 0.54
+                },
+                {
+                  type: "text",
+                  text: item.detail || " ",
+                  font: { size: compact ? "caption1" : "footnote", weight: "regular" },
+                  textColor: t.detail,
+                  textAlign: "left",
+                  maxLines: 1,
+                  minScale: 0.68
+                }
+              ]
+            },
+            {
+              type: "stack",
+              direction: "column",
+              alignItems: "end",
+              gap: 0,
+              children: [
+                {
+                  type: "text",
+                  text: item.shortDate,
+                  font: { size: compact ? "caption1" : "footnote", weight: "medium" },
+                  textColor: t.date,
+                  textAlign: "right",
+                  maxLines: 1,
+                  minScale: 0.72
+                },
+                {
+                  type: "text",
+                  text: item.days === null ? "--d" : `${item.days}d`,
+                  font: { size: compact ? "title3" : "title2", weight: "bold" },
+                  textColor: t.strong,
+                  textAlign: "right",
+                  maxLines: 1,
+                  minScale: 0.58
+                }
+              ]
+            }
+          ]
         },
         {
           type: "spacer"
