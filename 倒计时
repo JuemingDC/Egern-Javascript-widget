@@ -1,206 +1,821 @@
-export default async function(ctx) {
-  const env = ctx.env || {}
+export default async function (ctx) {
+  const family = ctx.widgetFamily || 'systemMedium';
 
-  const TITLE = env.TITLE || "倒计时"
-  const TZ = Number(env.TZ_OFFSET || 8)
-  const MAX = Math.max(1, Math.min(Number(env.MAX_ITEMS || 4), 8))
+  const rawNames = String(ctx.env.name || '目标');
+  const rawDates = String(ctx.env.date || '');
+  const rawDetails = String(ctx.env.detail || '');
 
-  function getNowInTZ(offset) {
-    const now = new Date()
-    const utc = now.getTime() + now.getTimezoneOffset() * 60000
-    return new Date(utc + offset * 3600000)
+  const items = normalizeGoals(rawNames, rawDates, rawDetails)
+    .map((item) => enrichGoal(item))
+    .filter(Boolean)
+    .sort((a, b) => a.targetMs - b.targetMs);
+
+  if (!items.length) {
+    return buildEmptyWidget(family);
   }
 
-  function parseDate(dateStr) {
-    const parts = String(dateStr || "").split("-").map(Number)
-    if (parts.length !== 3 || parts.some(Number.isNaN)) return null
-    return { y: parts[0], m: parts[1], d: parts[2] }
+  if (family === 'accessoryInline') {
+    return buildInline(items[0]);
   }
 
-  function calcDaysLeft(dateStr, offset) {
-    const parsed = parseDate(dateStr)
-    if (!parsed) return null
-
-    const now = getNowInTZ(offset)
-
-    const todayUTC = Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate()
-    )
-    const targetUTC = Date.UTC(parsed.y, parsed.m - 1, parsed.d)
-
-    const diff = Math.floor((targetUTC - todayUTC) / 86400000)
-    return diff < 0 ? 0 : diff
+  if (family === 'accessoryRectangular') {
+    return buildAccessoryRectangular(items[0]);
   }
 
-  function pad2(n) {
-    return String(n).padStart(2, "0")
+  if (family === 'systemSmall') {
+    return buildSmall(items);
   }
 
-  function artisticNumber(n) {
-    const s = String(n)
-    return s.split("").join(" ")
+  if (family === 'systemLarge' || family === 'systemExtraLarge') {
+    return buildLarge(items);
   }
 
-  function progressBar(daysLeft) {
-    const horizon = 30
-    const total = 12
-    const ratio = Math.max(0, Math.min(1, 1 - daysLeft / horizon))
-    const filled = Math.round(ratio * total)
+  return buildMedium(items);
+}
 
-    let bar = ""
-    for (let i = 0; i < total; i++) {
-      bar += i < filled ? "●" : "·"
-    }
-    return bar
+/* ---------------------------
+ * 数据解析
+ * --------------------------- */
+
+function splitEnvText(value) {
+  return String(value || '')
+    .split(/\s*\|\|\s*|\s*;;\s*|\n+/)
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+function normalizeGoals(namesText, datesText, detailsText) {
+  const names = splitEnvText(namesText);
+  const dates = splitEnvText(datesText);
+  const details = splitEnvText(detailsText);
+
+  const len = Math.max(names.length, dates.length, details.length, 1);
+  const list = [];
+
+  for (let i = 0; i < len; i++) {
+    list.push({
+      name: names[i] || names[0] || `目标 ${i + 1}`,
+      date: dates[i] || dates[0] || '',
+      detail: details[i] || details[0] || '',
+    });
   }
 
-  function buildRow(item) {
-    const left = item.left
-    const dateText = `${item.date}`
-    const bar = progressBar(left)
+  return list;
+}
 
-    const line1 = `✦ ${item.name}`
-    const line2 = `${artisticNumber(left)} 天`
-    const line3 = `${bar}`
-    const line4 = item.detail
-      ? `${dateText} · ${item.detail}`
-      : `${dateText}`
+function enrichGoal(item) {
+  const parsed = parseDateFlexible(item.date);
+  if (!parsed) return null;
 
+  const now = Date.now();
+  const targetMs = parsed.getTime();
+  const diffMs = targetMs - now;
+  const diffDays = diffMs / 86400000;
+  const urgency = getUrgency(diffDays, diffMs);
+  const palette = getUrgencyPalette(urgency);
+
+  return {
+    ...item,
+    iso: parsed.toISOString(),
+    targetMs,
+    diffMs,
+    diffDays,
+    urgency,
+    palette,
+    dayLabel: formatDayLabel(diffDays, diffMs),
+    absoluteLabel: formatAbsolute(parsed),
+  };
+}
+
+function parseDateFlexible(input) {
+  const s = String(input || '').trim();
+  if (!s) return null;
+
+  // 兼容 YYYY-MM-DD / YYYY/MM/DD / YYYY-MM-DD HH:mm / ISO
+  const normalized = s
+    .replace(/\./g, '-')
+    .replace(/\//g, '-')
+    .replace(/\s+/, 'T');
+
+  const d = new Date(normalized);
+  if (!Number.isNaN(d.getTime())) return d;
+
+  // 尝试 YYYY-MM-DD 纯日期
+  const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) {
+    const y = Number(m[1]);
+    const mo = Number(m[2]) - 1;
+    const da = Number(m[3]);
+    const dt = new Date(y, mo, da, 23, 59, 59);
+    if (!Number.isNaN(dt.getTime())) return dt;
+  }
+
+  return null;
+}
+
+function getUrgency(diffDays, diffMs) {
+  if (diffMs < 0) return 'expired';
+  if (diffDays <= 1) return 'critical';
+  if (diffDays <= 3) return 'urgent';
+  if (diffDays <= 7) return 'soon';
+  if (diffDays <= 30) return 'normal';
+  return 'calm';
+}
+
+function formatDayLabel(diffDays, diffMs) {
+  if (diffMs < 0) {
+    const days = Math.ceil(Math.abs(diffDays));
+    return days <= 1 ? '已截止' : `已过 ${days} 天`;
+  }
+
+  if (diffDays < 1) {
+    const hours = Math.max(1, Math.ceil(diffMs / 3600000));
+    return `${hours} 小时内`;
+  }
+
+  const days = Math.ceil(diffDays);
+  return `剩余 ${days} 天`;
+}
+
+function formatAbsolute(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  return `${y}.${m}.${d} ${hh}:${mm}`;
+}
+
+/* ---------------------------
+ * 色板：液态玻璃风格 + 紧急程度映射
+ * --------------------------- */
+
+function getUrgencyPalette(level) {
+  const palettes = {
+    calm: {
+      accent: { light: '#4E8CFF', dark: '#7DB2FF' },
+      accentSoft: { light: '#CFE1FFAA', dark: '#244C88AA' },
+      glow: { light: '#EFF5FF', dark: '#16263F' },
+      gradA: { light: '#F7FBFF', dark: '#0E1420' },
+      gradB: { light: '#EAF3FF', dark: '#141D2F' },
+      gradC: { light: '#D9E9FF', dark: '#1A2940' },
+    },
+    normal: {
+      accent: { light: '#3E9E8A', dark: '#66CDB8' },
+      accentSoft: { light: '#D4F2ECAA', dark: '#204B43AA' },
+      glow: { light: '#F3FFFC', dark: '#10201C' },
+      gradA: { light: '#F7FFFD', dark: '#0D1715' },
+      gradB: { light: '#E7FAF4', dark: '#13221F' },
+      gradC: { light: '#D4F1E9', dark: '#17302B' },
+    },
+    soon: {
+      accent: { light: '#F2A93B', dark: '#FFC766' },
+      accentSoft: { light: '#FFE8C0AA', dark: '#5A3E13AA' },
+      glow: { light: '#FFF9EF', dark: '#261A08' },
+      gradA: { light: '#FFFDF8', dark: '#191308' },
+      gradB: { light: '#FFF4DE', dark: '#231A0E' },
+      gradC: { light: '#FFE8BE', dark: '#352611' },
+    },
+    urgent: {
+      accent: { light: '#FF7E45', dark: '#FFA27A' },
+      accentSoft: { light: '#FFD7C7AA', dark: '#5E2410AA' },
+      glow: { light: '#FFF4EF', dark: '#25120C' },
+      gradA: { light: '#FFF9F6', dark: '#170E0C' },
+      gradB: { light: '#FFE7DF', dark: '#24120F' },
+      gradC: { light: '#FFD2C2', dark: '#361915' },
+    },
+    critical: {
+      accent: { light: '#FF4D67', dark: '#FF7C90' },
+      accentSoft: { light: '#FFD2DAAA', dark: '#5A1320AA' },
+      glow: { light: '#FFF1F4', dark: '#260C12' },
+      gradA: { light: '#FFF7F9', dark: '#180A0E' },
+      gradB: { light: '#FFE3E9', dark: '#230E14' },
+      gradC: { light: '#FFC8D4', dark: '#32121B' },
+    },
+    expired: {
+      accent: { light: '#8D8D99', dark: '#B0B0BC' },
+      accentSoft: { light: '#E5E5EDAA', dark: '#353540AA' },
+      glow: { light: '#FAFAFC', dark: '#16161A' },
+      gradA: { light: '#FAFAFC', dark: '#101014' },
+      gradB: { light: '#EFEFF5', dark: '#171720' },
+      gradC: { light: '#E1E1EA', dark: '#20202A' },
+    },
+  };
+  return palettes[level] || palettes.normal;
+}
+
+function baseText() {
+  return {
+    primary: { light: '#111318', dark: '#F5F7FB' },
+    secondary: { light: '#5E6675', dark: '#A7B0C1' },
+    weak: { light: '#7D8491', dark: '#7F8899' },
+    glassLine: { light: '#FFFFFFCC', dark: '#FFFFFF14' },
+    glassFill: { light: 'rgba(255,255,255,0.36)', dark: 'rgba(255,255,255,0.07)' },
+    glassFillStrong: { light: 'rgba(255,255,255,0.52)', dark: 'rgba(255,255,255,0.10)' },
+  };
+}
+
+/* ---------------------------
+ * Widget builders
+ * --------------------------- */
+
+function buildEmptyWidget(family) {
+  const t = baseText();
+
+  if (family === 'accessoryInline') {
     return {
-      header: line1,
-      number: line2,
-      progress: line3,
-      meta: line4
-    }
-  }
-
-  const items = []
-  for (let i = 1; i <= 8; i++) {
-    const name = env[`NAME${i}`]
-    const date = env[`DATE${i}`]
-    const detail = env[`DETAIL${i}`]
-
-    if (!name || !date) continue
-
-    const left = calcDaysLeft(date, TZ)
-    if (left === null) continue
-
-    items.push({
-      name: String(name),
-      date: String(date),
-      detail: detail ? String(detail) : "",
-      left
-    })
-  }
-
-  items.sort((a, b) => a.left - b.left)
-  const showItems = items.slice(0, MAX)
-
-  const compact = showItems.length >= 5
-  const tiny = showItems.length >= 7
-
-  const titleSize = 11
-  const itemNameSize = tiny ? 13 : compact ? 14 : 15
-  const itemNumSize = tiny ? 20 : compact ? 22 : 24
-  const itemBarSize = tiny ? 10 : 11
-  const itemMetaSize = 11
-
-  const children = [
-    {
-      type: "text",
-      text: TITLE,
-      font: {
-        size: titleSize,
-        weight: "medium"
-      },
-      textColor: {
-        light: "#7C7C80",
-        dark: "#8E8E93"
-      }
-    }
-  ]
-
-  if (showItems.length === 0) {
-    children.push({
-      type: "text",
-      text: "请设置 NAME1 / DATE1 / DETAIL1 等环境变量",
-      font: {
-        size: 13,
-        weight: "regular"
-      },
-      textColor: {
-        light: "#8E8E93",
-        dark: "#8E8E93"
-      }
-    })
-  } else {
-    for (const item of showItems) {
-      const row = buildRow(item)
-
-      children.push({
-        type: "text",
-        text: row.header,
-        font: {
-          size: itemNameSize,
-          weight: "semibold"
-        },
-        textColor: {
-          light: "#111111",
-          dark: "#F5F5F7"
-        }
-      })
-
-      children.push({
-        type: "text",
-        text: row.number,
-        font: {
-          size: itemNumSize,
-          weight: "bold"
-        },
-        textColor: {
-          light: "#6EA8FF",
-          dark: "#8FC2FF"
-        }
-      })
-
-      children.push({
-        type: "text",
-        text: row.progress,
-        font: {
-          size: itemBarSize,
-          weight: "medium"
-        },
-        textColor: {
-          light: "#8BB8FF",
-          dark: "#7DB7FF"
-        }
-      })
-
-      children.push({
-        type: "text",
-        text: row.meta,
-        font: {
-          size: itemMetaSize,
-          weight: "regular"
-        },
-        textColor: {
-          light: "#8E8E93",
-          dark: "#8E8E93"
-        }
-      })
-    }
+      type: 'widget',
+      children: [{
+        type: 'text',
+        text: '未设置目标',
+        font: { size: 'caption1', weight: 'medium' },
+        textColor: t.secondary,
+      }],
+    };
   }
 
   return {
-    type: "widget",
-    children,
-    backgroundColor: {
-      light: "#F2F2F7",
-      dark: "#1C1C1E"
-    },
+    type: 'widget',
     padding: 14,
-    gap: tiny ? 3 : compact ? 4 : 5
+    backgroundGradient: {
+      type: 'linear',
+      colors: [
+        { light: '#F7F9FC', dark: '#0E1117' },
+        { light: '#EEF2F8', dark: '#131923' },
+        { light: '#E6ECF5', dark: '#18212E' },
+      ],
+      stops: [0, 0.56, 1],
+      startPoint: { x: 0, y: 0 },
+      endPoint: { x: 1, y: 1 },
+    },
+    children: [
+      {
+        type: 'text',
+        text: 'countdown',
+        font: { size: 'caption2', weight: 'medium' },
+        textColor: t.weak,
+        opacity: 0.8,
+      },
+      { type: 'spacer' },
+      {
+        type: 'text',
+        text: '未设置目标',
+        font: { size: 'headline', weight: 'semibold' },
+        textColor: t.primary,
+      },
+      {
+        type: 'text',
+        text: '请填写 env: name / date / detail',
+        font: { size: 'caption1' },
+        textColor: t.secondary,
+      },
+      { type: 'spacer' },
+    ],
+  };
+}
+
+function buildInline(goal) {
+  return {
+    type: 'widget',
+    children: [
+      {
+        type: 'text',
+        text: `${goal.name} · `,
+        font: { size: 'caption1', weight: 'semibold' },
+        textColor: goal.palette.accent,
+      },
+      {
+        type: 'date',
+        date: goal.iso,
+        format: goal.diffMs < 0 ? 'relative' : 'timer',
+        font: { size: 'caption1', weight: 'medium' },
+        textColor: baseText().secondary,
+      },
+    ],
+  };
+}
+
+function buildAccessoryRectangular(goal) {
+  const t = baseText();
+  return {
+    type: 'widget',
+    padding: [6, 8, 6, 8],
+    children: [
+      {
+        type: 'stack',
+        direction: 'column',
+        gap: 3,
+        children: [
+          {
+            type: 'stack',
+            direction: 'row',
+            alignItems: 'center',
+            children: [
+              {
+                type: 'text',
+                text: goal.name,
+                font: { size: 'caption1', weight: 'semibold' },
+                textColor: t.primary,
+                maxLines: 1,
+                minScale: 0.65,
+                flex: 1,
+              },
+              {
+                type: 'text',
+                text: goal.dayLabel,
+                font: { size: 'caption2', weight: 'medium' },
+                textColor: goal.palette.accent,
+                maxLines: 1,
+                minScale: 0.7,
+              },
+            ],
+          },
+          {
+            type: 'date',
+            date: goal.iso,
+            format: goal.diffMs < 0 ? 'relative' : 'timer',
+            font: { size: 'caption2', weight: 'medium' },
+            textColor: t.secondary,
+            maxLines: 1,
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function buildSmall(items) {
+  const goal = items[0];
+  const t = baseText();
+
+  return {
+    type: 'widget',
+    padding: 12,
+    backgroundGradient: glassBackground(goal.palette),
+    children: [
+      topLabel(),
+      { type: 'spacer', length: 6 },
+      {
+        type: 'stack',
+        direction: 'column',
+        gap: 8,
+        padding: 10,
+        backgroundColor: t.glassFill,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: t.glassLine,
+        shadowColor: goal.palette.accentSoft,
+        shadowRadius: 10,
+        shadowOffset: { x: 0, y: 3 },
+        children: [
+          {
+            type: 'text',
+            text: goal.name,
+            font: { size: 'headline', weight: 'bold' },
+            textColor: t.primary,
+            maxLines: 2,
+            minScale: 0.72,
+          },
+          {
+            type: 'text',
+            text: goal.detail || ' ',
+            font: { size: 'caption1' },
+            textColor: t.secondary,
+            maxLines: 2,
+            minScale: 0.7,
+          },
+          {
+            type: 'stack',
+            direction: 'row',
+            alignItems: 'end',
+            children: [
+              {
+                type: 'date',
+                date: goal.iso,
+                format: goal.diffMs < 0 ? 'relative' : 'timer',
+                font: { size: 'title3', weight: 'heavy' },
+                textColor: goal.palette.accent,
+                maxLines: 1,
+                minScale: 0.55,
+                flex: 1,
+              },
+            ],
+          },
+          {
+            type: 'text',
+            text: goal.absoluteLabel,
+            font: { size: 'caption2', weight: 'medium' },
+            textColor: t.weak,
+            maxLines: 1,
+          },
+        ],
+      },
+      { type: 'spacer' },
+    ],
+  };
+}
+
+function buildMedium(items) {
+  const primary = items[0];
+  const secondary = items.slice(1, 3);
+  const t = baseText();
+
+  return {
+    type: 'widget',
+    padding: 14,
+    backgroundGradient: glassBackground(primary.palette),
+    children: [
+      topLabel(),
+      { type: 'spacer', length: 8 },
+      {
+        type: 'stack',
+        direction: 'row',
+        gap: 10,
+        children: [
+          buildHeroCard(primary, { compact: false, flex: 1.28 }),
+          buildSideList(secondary.length ? secondary : items.slice(0, 2), { flex: 0.92 }),
+        ],
+      },
+    ],
+  };
+}
+
+function buildLarge(items) {
+  const t = baseText();
+  const primary = items[0];
+  const list = items.slice(0, 5);
+
+  return {
+    type: 'widget',
+    padding: 16,
+    backgroundGradient: glassBackground(primary.palette),
+    children: [
+      topLabel(),
+      { type: 'spacer', length: 10 },
+      {
+        type: 'stack',
+        direction: 'row',
+        gap: 12,
+        children: [
+          buildHeroCard(primary, { compact: false, flex: 1.15, large: true }),
+          {
+            type: 'stack',
+            direction: 'column',
+            gap: 8,
+            flex: 0.95,
+            children: list.slice(1).map((goal, idx) => buildMiniCard(goal, idx >= 2)),
+          },
+        ],
+      },
+    ],
+  };
+}
+
+/* ---------------------------
+ * 组件片段
+ * --------------------------- */
+
+function topLabel() {
+  const t = baseText();
+  return {
+    type: 'stack',
+    direction: 'row',
+    alignItems: 'center',
+    children: [
+      {
+        type: 'text',
+        text: 'countdown',
+        font: { size: 'caption2', weight: 'medium' },
+        textColor: t.weak,
+        opacity: 0.72,
+      },
+      { type: 'spacer' },
+      {
+        type: 'text',
+        text: '目标',
+        font: { size: 'caption2', weight: 'medium' },
+        textColor: t.weak,
+        opacity: 0.52,
+      },
+    ],
+  };
+}
+
+function buildHeroCard(goal, options = {}) {
+  const t = baseText();
+  const compact = !!options.compact;
+
+  return {
+    type: 'stack',
+    direction: 'column',
+    gap: compact ? 7 : 9,
+    flex: options.flex || 1,
+    padding: compact ? 12 : 14,
+    backgroundColor: t.glassFillStrong,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: t.glassLine,
+    shadowColor: goal.palette.accentSoft,
+    shadowRadius: 16,
+    shadowOffset: { x: 0, y: 4 },
+    children: [
+      {
+        type: 'stack',
+        direction: 'row',
+        alignItems: 'start',
+        children: [
+          {
+            type: 'stack',
+            direction: 'column',
+            gap: 5,
+            flex: 1,
+            children: [
+              {
+                type: 'text',
+                text: goal.name,
+                font: { size: options.large ? 'title2' : 'title3', weight: 'bold' },
+                textColor: t.primary,
+                maxLines: 2,
+                minScale: 0.68,
+              },
+              {
+                type: 'text',
+                text: goal.detail || ' ',
+                font: { size: 'caption1' },
+                textColor: t.secondary,
+                maxLines: options.large ? 3 : 2,
+                minScale: 0.7,
+              },
+            ],
+          },
+          {
+            type: 'stack',
+            direction: 'column',
+            alignItems: 'end',
+            gap: 4,
+            children: [
+              urgencyPill(goal),
+            ],
+          },
+        ],
+      },
+      { type: 'spacer' },
+      {
+        type: 'stack',
+        direction: 'row',
+        alignItems: 'end',
+        children: [
+          {
+            type: 'stack',
+            direction: 'column',
+            gap: 4,
+            flex: 1,
+            children: [
+              {
+                type: 'text',
+                text: '截止',
+                font: { size: 'caption2', weight: 'medium' },
+                textColor: t.weak,
+              },
+              {
+                type: 'text',
+                text: goal.absoluteLabel,
+                font: { size: 'subheadline', weight: 'semibold' },
+                textColor: t.primary,
+                maxLines: 1,
+                minScale: 0.7,
+              },
+            ],
+          },
+          {
+            type: 'stack',
+            direction: 'column',
+            alignItems: 'end',
+            gap: 2,
+            children: [
+              {
+                type: 'date',
+                date: goal.iso,
+                format: goal.diffMs < 0 ? 'relative' : 'timer',
+                font: { size: options.large ? 'title2' : 'title3', weight: 'heavy' },
+                textColor: goal.palette.accent,
+                maxLines: 1,
+                minScale: 0.55,
+                shadowColor: goal.palette.accentSoft,
+                shadowRadius: 8,
+                shadowOffset: { x: 0, y: 1 },
+              },
+              {
+                type: 'text',
+                text: goal.dayLabel,
+                font: { size: 'caption1', weight: 'medium' },
+                textColor: goal.palette.accent,
+                maxLines: 1,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function buildSideList(items, options = {}) {
+  const t = baseText();
+  const list = items.slice(0, 3);
+
+  return {
+    type: 'stack',
+    direction: 'column',
+    gap: 8,
+    flex: options.flex || 1,
+    children: list.map((goal, index) => ({
+      type: 'stack',
+      direction: 'column',
+      gap: 6,
+      padding: [10, 10, 10, 10],
+      backgroundColor: index === 0 ? t.glassFillStrong : t.glassFill,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: t.glassLine,
+      children: [
+        {
+          type: 'stack',
+          direction: 'row',
+          alignItems: 'center',
+          children: [
+            {
+              type: 'text',
+              text: goal.name,
+              font: { size: 'subheadline', weight: 'semibold' },
+              textColor: t.primary,
+              maxLines: 1,
+              minScale: 0.72,
+              flex: 1,
+            },
+            {
+              type: 'text',
+              text: shortUrgency(goal),
+              font: { size: 'caption2', weight: 'bold' },
+              textColor: goal.palette.accent,
+              maxLines: 1,
+            },
+          ],
+        },
+        {
+          type: 'text',
+          text: goal.detail || goal.absoluteLabel,
+          font: { size: 'caption2' },
+          textColor: t.secondary,
+          maxLines: 1,
+          minScale: 0.72,
+        },
+        {
+          type: 'stack',
+          direction: 'row',
+          alignItems: 'center',
+          children: [
+            {
+              type: 'date',
+              date: goal.iso,
+              format: goal.diffMs < 0 ? 'relative' : 'timer',
+              font: { size: 'headline', weight: 'bold' },
+              textColor: goal.palette.accent,
+              maxLines: 1,
+              minScale: 0.58,
+              flex: 1,
+            },
+            {
+              type: 'text',
+              text: goal.dayLabel,
+              font: { size: 'caption2', weight: 'medium' },
+              textColor: baseText().weak,
+              maxLines: 1,
+            },
+          ],
+        },
+      ],
+    })),
+  };
+}
+
+function buildMiniCard(goal, compact = false) {
+  const t = baseText();
+
+  return {
+    type: 'stack',
+    direction: 'column',
+    gap: compact ? 4 : 5,
+    padding: compact ? [8, 10, 8, 10] : [10, 10, 10, 10],
+    backgroundColor: t.glassFill,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: t.glassLine,
+    children: [
+      {
+        type: 'stack',
+        direction: 'row',
+        alignItems: 'center',
+        children: [
+          {
+            type: 'text',
+            text: goal.name,
+            font: { size: compact ? 'caption1' : 'subheadline', weight: 'semibold' },
+            textColor: t.primary,
+            maxLines: 1,
+            minScale: 0.72,
+            flex: 1,
+          },
+          {
+            type: 'text',
+            text: shortUrgency(goal),
+            font: { size: 'caption2', weight: 'bold' },
+            textColor: goal.palette.accent,
+            maxLines: 1,
+          },
+        ],
+      },
+      {
+        type: 'text',
+        text: goal.detail || goal.absoluteLabel,
+        font: { size: 'caption2' },
+        textColor: t.secondary,
+        maxLines: 1,
+        minScale: 0.7,
+      },
+      {
+        type: 'stack',
+        direction: 'row',
+        alignItems: 'end',
+        children: [
+          {
+            type: 'date',
+            date: goal.iso,
+            format: goal.diffMs < 0 ? 'relative' : 'timer',
+            font: { size: compact ? 'subheadline' : 'headline', weight: 'bold' },
+            textColor: goal.palette.accent,
+            maxLines: 1,
+            minScale: 0.56,
+            flex: 1,
+          },
+          {
+            type: 'text',
+            text: goal.dayLabel,
+            font: { size: 'caption2', weight: 'medium' },
+            textColor: t.weak,
+            maxLines: 1,
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function urgencyPill(goal) {
+  return {
+    type: 'stack',
+    direction: 'row',
+    padding: [5, 9, 5, 9],
+    backgroundColor: goal.palette.accentSoft,
+    borderRadius: 999,
+    children: [
+      {
+        type: 'text',
+        text: shortUrgency(goal),
+        font: { size: 'caption2', weight: 'bold' },
+        textColor: goal.palette.accent,
+      },
+    ],
+  };
+}
+
+function shortUrgency(goal) {
+  switch (goal.urgency) {
+    case 'critical':
+      return '紧急';
+    case 'urgent':
+      return '临近';
+    case 'soon':
+      return '本周';
+    case 'normal':
+      return '进行中';
+    case 'expired':
+      return '已截止';
+    default:
+      return '充裕';
   }
+}
+
+function glassBackground(palette) {
+  return {
+    type: 'linear',
+    colors: [
+      palette.gradA,
+      palette.gradB,
+      palette.gradC,
+    ],
+    stops: [0, 0.62, 1],
+    startPoint: { x: 0, y: 0 },
+    endPoint: { x: 1, y: 1 },
+  };
 }
