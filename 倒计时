@@ -85,45 +85,62 @@ export default async function (ctx) {
     return 2;
   }
 
-  // 仅用颜色区分紧急程度
   function getTone(days) {
     if (days === null) {
       return {
-        cardBg: { light: "#F6F1E8", dark: "#2C2621" },
-        accent: { light: "#8B8176", dark: "#C8B8A8" },
-        accentSoft: { light: "#E8DED2", dark: "#433930" },
-        numberBg: { light: "#EEE6DC", dark: "#3B322B" }
+        line: { light: "#D8CCBE", dark: "#51473D" },
+        date: { light: "#6F665D", dark: "#C7B9A9" },
+        title: { light: "#2E2721", dark: "#F2E8DC" },
+        detail: { light: "#85786B", dark: "#B9AA99" },
+        num: { light: "#8F8376", dark: "#D9C7B2" },
+        numShadow: { light: "#E6DBCE", dark: "#3B3128" }
       };
     }
     if (days <= 3) {
       return {
-        cardBg: { light: "#F8ECE8", dark: "#342422" },
-        accent: { light: "#B14B3E", dark: "#F2A59A" },
-        accentSoft: { light: "#EEC9C1", dark: "#5A3934" },
-        numberBg: { light: "#F3DBD5", dark: "#4B2E2B" }
+        line: { light: "#E4B9AE", dark: "#6A4038" },
+        date: { light: "#8E544A", dark: "#E6B2A8" },
+        title: { light: "#2E2721", dark: "#F2E8DC" },
+        detail: { light: "#8D6A63", dark: "#C9A39A" },
+        num: { light: "#B3473B", dark: "#F1A399" },
+        numShadow: { light: "#F1D9D4", dark: "#4B2D29" }
       };
     }
     if (days <= 14) {
       return {
-        cardBg: { light: "#F6EFE5", dark: "#32281F" },
-        accent: { light: "#B07A37", dark: "#E7C38C" },
-        accentSoft: { light: "#E8D6B8", dark: "#5A4830" },
-        numberBg: { light: "#F1E6D3", dark: "#473827" }
+        line: { light: "#DFC9A6", dark: "#655038" },
+        date: { light: "#8A6A38", dark: "#E5C68E" },
+        title: { light: "#2E2721", dark: "#F2E8DC" },
+        detail: { light: "#8A7862", dark: "#C8B392" },
+        num: { light: "#AE7A2E", dark: "#E7C27E" },
+        numShadow: { light: "#F0E5D1", dark: "#473724" }
       };
     }
     if (days <= 30) {
       return {
-        cardBg: { light: "#EEF1F6", dark: "#252C35" },
-        accent: { light: "#6E7E98", dark: "#BDC9D9" },
-        accentSoft: { light: "#D5DDE8", dark: "#3D4755" },
-        numberBg: { light: "#E3EAF3", dark: "#323C49" }
+        line: { light: "#C8D3E2", dark: "#485466" },
+        date: { light: "#64758E", dark: "#B6C5D7" },
+        title: { light: "#2E2721", dark: "#F2E8DC" },
+        detail: { light: "#7A7F8A", dark: "#AEB8C5" },
+        num: { light: "#6E809B", dark: "#C0CCDB" },
+        numShadow: { light: "#E2E9F1", dark: "#303846" }
       };
     }
     return {
-      cardBg: { light: "#F2F3F5", dark: "#25272B" },
-      accent: { light: "#7A8597", dark: "#C2CAD7" },
-      accentSoft: { light: "#DCE2EA", dark: "#3B414B" },
-      numberBg: { light: "#E9EDF2", dark: "#31353C" }
+      line: { light: "#D8DCE2", dark: "#474C55" },
+      date: { light: "#737B89", dark: "#BBC3CF" },
+      title: { light: "#2E2721", dark: "#F2E8DC" },
+      detail: { light: "#8B9098", dark: "#AAB1BA" },
+      num: { light: "#7E8796", dark: "#C6CDD7" },
+      numShadow: { light: "#E8ECF1", dark: "#2E3239" }
+    };
+  }
+
+  function makeDivider(color) {
+    return {
+      type: "stack",
+      height: 1,
+      backgroundColor: color
     };
   }
 
@@ -132,39 +149,36 @@ export default async function (ctx) {
 
     return {
       type: "stack",
-      direction: "row",
-      alignItems: "center",
-      padding: compact ? [12, 14, 12, 14] : [14, 16, 14, 16],
-      backgroundColor: tone.cardBg,
-      borderRadius: 20,
+      direction: "column",
+      gap: compact ? 8 : 10,
+      padding: compact ? [10, 6, 10, 6] : [12, 8, 12, 8],
       children: [
         {
           type: "stack",
           direction: "row",
           alignItems: "center",
-          flex: 1,
           children: [
             {
               type: "stack",
               direction: "row",
               alignItems: "center",
-              gap: 6,
-              width: compact ? 92 : 108,
+              width: compact ? 88 : 104,
+              gap: 5,
               children: [
                 {
                   type: "image",
                   src: "sf-symbol:calendar",
-                  color: tone.accent,
-                  width: compact ? 13 : 14,
-                  height: compact ? 13 : 14
+                  color: tone.date,
+                  width: compact ? 12 : 13,
+                  height: compact ? 12 : 13
                 },
                 {
                   type: "text",
                   text: item.dateText,
                   font: { size: compact ? "caption1" : "body", weight: "medium" },
-                  textColor: { light: "#5D544A", dark: "#D2C5B6" },
+                  textColor: tone.date,
                   maxLines: 1,
-                  minScale: 0.7
+                  minScale: 0.75
                 }
               ]
             },
@@ -179,17 +193,19 @@ export default async function (ctx) {
                   type: "text",
                   text: item.name,
                   font: { size: compact ? "body" : "headline", weight: "semibold" },
-                  textColor: { light: "#2E2721", dark: "#F3E9DE" },
+                  textColor: tone.title,
                   maxLines: 1,
-                  minScale: 0.65
+                  minScale: 0.65,
+                  textAlign: "center"
                 },
                 {
                   type: "text",
                   text: item.detail || " ",
                   font: { size: "caption1", weight: "regular" },
-                  textColor: { light: "#827669", dark: "#BDAF9F" },
+                  textColor: tone.detail,
                   maxLines: 1,
-                  minScale: 0.7
+                  minScale: 0.7,
+                  textAlign: "center"
                 }
               ]
             },
@@ -198,28 +214,28 @@ export default async function (ctx) {
               type: "stack",
               direction: "column",
               alignItems: "end",
-              width: compact ? 52 : 64,
+              width: compact ? 56 : 70,
               children: [
                 {
-                  type: "stack",
-                  padding: compact ? [4, 9, 4, 9] : [5, 11, 5, 11],
-                  backgroundColor: tone.numberBg,
-                  borderRadius: 999,
-                  children: [
-                    {
-                      type: "text",
-                      text: item.days === null ? "--" : String(item.days),
-                      font: { size: compact ? "title3" : "title2", weight: "bold" },
-                      textColor: tone.accent,
-                      maxLines: 1,
-                      minScale: 0.55
-                    }
-                  ]
+                  type: "text",
+                  text: item.days === null ? "--" : String(item.days),
+                  font: { size: compact ? "largeTitle" : "title", weight: "bold" },
+                  textColor: tone.num,
+                  maxLines: 1,
+                  minScale: 0.5
+                },
+                {
+                  type: "text",
+                  text: "days",
+                  font: { size: "caption2", weight: "medium" },
+                  textColor: tone.numShadow,
+                  maxLines: 1
                 }
               ]
             }
           ]
-        }
+        },
+        makeDivider(tone.line)
       ]
     };
   }
@@ -232,7 +248,7 @@ export default async function (ctx) {
     return {
       type: "widget",
       padding: 14,
-      gap: 10,
+      gap: 8,
       backgroundGradient: {
         type: "linear",
         colors: [
@@ -265,6 +281,7 @@ export default async function (ctx) {
           font: { size: "headline", weight: "semibold" },
           textColor: { light: "#302821", dark: "#F0E5D9" },
           maxLines: 1,
+          textAlign: "center",
           minScale: 0.7
         },
         {
@@ -272,7 +289,8 @@ export default async function (ctx) {
           text: "Use NAME1 / DATE1 / DETAIL1",
           font: { size: "caption1", weight: "regular" },
           textColor: { light: "#7B6E61", dark: "#B6A899" },
-          maxLines: 2
+          maxLines: 2,
+          textAlign: "center"
         },
         { type: "spacer" }
       ]
@@ -311,7 +329,7 @@ export default async function (ctx) {
   return {
     type: "widget",
     padding: family === "systemLarge" || family === "systemExtraLarge" ? 14 : 13,
-    gap: family === "systemLarge" || family === "systemExtraLarge" ? 10 : 8,
+    gap: family === "systemLarge" || family === "systemExtraLarge" ? 6 : 4,
     backgroundGradient: {
       type: "linear",
       colors: [
