@@ -45,80 +45,14 @@ export default async function(ctx) {
     return "scheduled";
   }
 
-  function progressRatio(days) {
-    if (days === null) return 0.24;
-    if (days === 0) return 1;
-    const capped = Math.min(days, 60);
-    return (60 - capped) / 60;
-  }
-
-  function tone(days) {
-    if (days === null) {
-      return {
-        strong: { light: "#8E8174", dark: "#D7C5B3" },
-        strongSoft: { light: "#8E81741A", dark: "#D7C5B322" },
-        title: { light: "#231D18", dark: "#F4E8DC" },
-        detail: { light: "#887B6D", dark: "#B8A998" },
-        meta: { light: "#8F8172", dark: "#C9B8A7" },
-        track: { light: "#E8DED2", dark: "#463A31" },
-        fill: { light: "#BBAE9E", dark: "#8E7B68" },
-        divider: { light: "#D8CCBE", dark: "#51473D" }
-      };
-    }
-    if (days <= 3) {
-      return {
-        strong: { light: "#C95A4B", dark: "#F1A79B" },
-        strongSoft: { light: "#C95A4B1A", dark: "#F1A79B22" },
-        title: { light: "#231D18", dark: "#F4E8DC" },
-        detail: { light: "#966B64", dark: "#D0A59C" },
-        meta: { light: "#A55E52", dark: "#E7B4AA" },
-        track: { light: "#F0D9D4", dark: "#4D2E2A" },
-        fill: { light: "#C85A4B", dark: "#E09A90" },
-        divider: { light: "#E4B9AE", dark: "#6A4038" }
-      };
-    }
-    if (days <= 14) {
-      return {
-        strong: { light: "#C18A38", dark: "#E6C27F" },
-        strongSoft: { light: "#C18A381A", dark: "#E6C27F22" },
-        title: { light: "#231D18", dark: "#F4E8DC" },
-        detail: { light: "#8B7861", dark: "#C8B391" },
-        meta: { light: "#92703E", dark: "#E4C58C" },
-        track: { light: "#EEE2CC", dark: "#463824" },
-        fill: { light: "#C18A38", dark: "#D7B16E" },
-        divider: { light: "#DFC9A6", dark: "#655038" }
-      };
-    }
-    if (days <= 30) {
-      return {
-        strong: { light: "#7E95B3", dark: "#C0CCDB" },
-        strongSoft: { light: "#7E95B31A", dark: "#C0CCDB22" },
-        title: { light: "#231D18", dark: "#F4E8DC" },
-        detail: { light: "#7C808A", dark: "#AEB7C4" },
-        meta: { light: "#6C7D97", dark: "#B7C5D7" },
-        track: { light: "#DFE6EF", dark: "#313B49" },
-        fill: { light: "#7E95B3", dark: "#B2C1D4" },
-        divider: { light: "#C8D3E2", dark: "#485466" }
-      };
-    }
-    return {
-      strong: { light: "#9AA3B1", dark: "#C6CDD7" },
-      strongSoft: { light: "#9AA3B11A", dark: "#C6CDD722" },
-      title: { light: "#231D18", dark: "#F4E8DC" },
-      detail: { light: "#8B9098", dark: "#AAB1BA" },
-      meta: { light: "#7F8795", dark: "#BBC3CF" },
-      track: { light: "#E6E9EE", dark: "#333741" },
-      fill: { light: "#98A2B1", dark: "#B6BEC9" },
-      divider: { light: "#D8DCE2", dark: "#474C55" }
-    };
-  }
-
   function getItems() {
     const list = [];
+
     for (let i = 1; i <= 20; i++) {
       const name = env["NAME" + i];
       const date = env["DATE" + i];
       const detail = env["DETAIL" + i];
+
       if (!name && !date && !detail) continue;
 
       const dt = parseDate(date);
@@ -159,112 +93,128 @@ export default async function(ctx) {
     return 2;
   }
 
-  function progressBar(itemTone, days, compact) {
-    const total = compact ? 150 : 210;
-    const fill = Math.max(14, Math.round(total * progressRatio(days)));
-
+  function tone(days) {
+    if (days === null) {
+      return {
+        strong: { light: "#8E8174", dark: "#D7C5B3" },
+        title: { light: "#231D18", dark: "#F4E8DC" },
+        detail: { light: "#887B6D", dark: "#B8A998" },
+        meta: { light: "#8F8172", dark: "#C9B8A7" },
+        divider: { light: "#D8CCBE", dark: "#51473D" }
+      };
+    }
+    if (days <= 3) {
+      return {
+        strong: { light: "#C95A4B", dark: "#F1A79B" },
+        title: { light: "#231D18", dark: "#F4E8DC" },
+        detail: { light: "#966B64", dark: "#D0A59C" },
+        meta: { light: "#A55E52", dark: "#E7B4AA" },
+        divider: { light: "#E4B9AE", dark: "#6A4038" }
+      };
+    }
+    if (days <= 14) {
+      return {
+        strong: { light: "#C18A38", dark: "#E6C27F" },
+        title: { light: "#231D18", dark: "#F4E8DC" },
+        detail: { light: "#8B7861", dark: "#C8B391" },
+        meta: { light: "#92703E", dark: "#E4C58C" },
+        divider: { light: "#DFC9A6", dark: "#655038" }
+      };
+    }
+    if (days <= 30) {
+      return {
+        strong: { light: "#7E95B3", dark: "#C0CCDB" },
+        title: { light: "#231D18", dark: "#F4E8DC" },
+        detail: { light: "#7C808A", dark: "#AEB7C4" },
+        meta: { light: "#6C7D97", dark: "#B7C5D7" },
+        divider: { light: "#C8D3E2", dark: "#485466" }
+      };
+    }
     return {
-      type: "stack",
-      width: total,
-      height: 4,
-      backgroundColor: itemTone.track,
-      borderRadius: 999,
-      children: [
-        {
-          type: "stack",
-          width: fill,
-          height: 4,
-          backgroundColor: itemTone.fill,
-          borderRadius: 999
-        }
-      ]
+      strong: { light: "#9AA3B1", dark: "#C6CDD7" },
+      title: { light: "#231D18", dark: "#F4E8DC" },
+      detail: { light: "#8B9098", dark: "#AAB1BA" },
+      meta: { light: "#7F8795", dark: "#BBC3CF" },
+      divider: { light: "#D8DCE2", dark: "#474C55" }
     };
   }
 
-  function heroItem(item, compact) {
+  function colorToHex(colorObj, mode) {
+    const value = colorObj[mode] || colorObj.light || "#999999";
+    return value;
+  }
+
+  function makeNumberBackground(days, strongColor) {
+    const text = days === null ? "--" : String(days);
+    const hex = colorToHex(strongColor, "light");
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 220" preserveAspectRatio="xMidYMid slice">` +
+      `<rect width="100%" height="100%" fill="transparent"/>` +
+      `<text x="200" y="120" text-anchor="middle" dominant-baseline="middle" font-size="132" font-family="-apple-system,BlinkMacSystemFont,'SF Pro Display',sans-serif" font-weight="800" fill="${hex}" fill-opacity="0.12">${text}</text>` +
+      `</svg>`;
+
+    return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+  }
+
+  function itemBlock(item, compact) {
     const t = tone(item.days);
-    const bigText = item.days === null ? "--" : `${item.days}`;
-    const dayText = item.days === null ? "-- d" : `${item.days}d`;
 
     return {
       type: "stack",
       direction: "column",
       flex: 1,
-      padding: compact ? [8, 0, 8, 0] : [10, 0, 10, 0],
+      alignItems: "center",
+      padding: compact ? [10, 8, 10, 8] : [12, 10, 12, 10],
+      backgroundImage: makeNumberBackground(item.days, t.strong),
       children: [
         {
-          type: "stack",
-          direction: "column",
-          flex: 1,
-          alignItems: "center",
-          children: [
-            {
-              type: "spacer"
-            },
-            {
-              type: "text",
-              text: bigText,
-              font: { size: compact ? "largeTitle" : "title", weight: "black" },
-              textColor: t.strongSoft,
-              maxLines: 1,
-              minScale: 0.4
-            },
-            {
-              type: "spacer"
-            }
-          ]
+          type: "spacer"
         },
         {
-          type: "stack",
-          direction: "column",
-          alignItems: "center",
-          gap: compact ? 2 : 3,
-          children: [
-            {
-              type: "text",
-              text: item.name,
-              font: { size: compact ? "title3" : "title2", weight: "bold" },
-              textColor: t.title,
-              textAlign: "center",
-              maxLines: 1,
-              minScale: 0.52
-            },
-            {
-              type: "text",
-              text: item.detail || " ",
-              font: { size: compact ? "caption1" : "footnote", weight: "regular" },
-              textColor: t.detail,
-              textAlign: "center",
-              maxLines: 1,
-              minScale: 0.64
-            },
-            {
-              type: "spacer",
-              length: compact ? 4 : 6
-            },
-            progressBar(t, item.days, compact),
-            {
-              type: "text",
-              text: `${item.shortDate} · ${relativeText(item.days)}`,
-              font: { size: compact ? "caption1" : "footnote", weight: "medium" },
-              textColor: t.meta,
-              textAlign: "center",
-              maxLines: 1,
-              minScale: 0.68
-            },
-            {
-              type: "spacer",
-              length: compact ? 2 : 4
-            },
-            {
-              type: "text",
-              text: dayText,
-              font: { size: "caption2", weight: "semibold" },
-              textColor: t.strong,
-              textAlign: "center",
-              maxLines: 1
-            }
-          ]
+          type: "text",
+          text: item.name,
+          font: { size: compact ? "title3" : "title2", weight: "bold" },
+          textColor: t.title,
+          textAlign: "center",
+          maxLines: 1,
+          minScale: 0.52
+        },
+        {
+          type: "text",
+          text: item.detail || " ",
+          font: { size: compact ? "caption1" : "footnote", weight: "regular" },
+          textColor: t.detail,
+          textAlign: "center",
+          maxLines: 1,
+          minScale: 0.68
+        },
+        {
+          type: "spacer",
+          length: compact ? 4 : 6
+        },
+        {
+          type: "text",
+          text: `${item.shortDate} · ${relativeText(item.days)}`,
+          font: { size: compact ? "caption1" : "footnote", weight: "medium" },
+          textColor: t.meta,
+          textAlign: "center",
+          maxLines: 1,
+          minScale: 0.7
+        },
+        {
+          type: "spacer",
+          length: compact ? 2 : 4
+        },
+        {
+          type: "text",
+          text: item.days === null ? "-- d" : `${item.days}d`,
+          font: { size: "caption2", weight: "semibold" },
+          textColor: t.strong,
+          textAlign: "center",
+          maxLines: 1
+        },
+        {
+          type: "spacer"
         }
       ]
     };
@@ -290,10 +240,17 @@ export default async function(ctx) {
       },
       children: [
         {
-          type: "text",
-          text: "COUNTDOWN",
-          font: { size: "caption2", weight: "semibold" },
-          textColor: { light: "#9B8E7F", dark: "#AFA08F" }
+          type: "stack",
+          direction: "row",
+          children: [
+            {
+              type: "text",
+              text: "COUNTDOWN",
+              font: { size: "caption2", weight: "semibold" },
+              textColor: { light: "#9B8E7F", dark: "#AFA08F" }
+            },
+            { type: "spacer" }
+          ]
         },
         {
           type: "spacer"
@@ -345,13 +302,12 @@ export default async function(ctx) {
   ];
 
   for (let i = 0; i < items.length; i++) {
-    children.push(heroItem(items[i], compact));
+    children.push(itemBlock(items[i], compact));
     if (i !== items.length - 1) {
       children.push({
         type: "stack",
         height: 1,
-        backgroundColor: tone(items[i].days).divider,
-        opacity: 0.55
+        backgroundColor: tone(items[i].days).divider
       });
     }
   }
