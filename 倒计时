@@ -136,85 +136,103 @@ export default async function(ctx) {
   }
 
   function itemBlock(item) {
-    const t = tone(item.days);
+  const t = tone(item.days);
 
-    return {
-      type: "stack",
-      direction: "column",
-      flex: 1,
-      padding: compact ? [8, 0, 8, 0] : [10, 0, 10, 0],
-      children: [
-        {
-          type: "spacer"
-        },
-        {
-          type: "stack",
-          direction: "row",
-          alignItems: "center",
-          gap: compact ? 8 : 12,
-          children: [
-            {
-              type: "stack",
-              direction: "column",
-              flex: 1.6,
-              alignItems: "start",
-              gap: 0,
-              children: [
-                {
-                  type: "text",
-                  text: item.name,
-                  font: { size: compact ? "headline" : "title3", weight: "bold" },
-                  textColor: t.title,
-                  textAlign: "left",
-                  maxLines: 1,
-                  minScale: 0.42
-                },
-                {
-                  type: "text",
-                  text: item.detail || " ",
-                  font: { size: compact ? "caption1" : "footnote", weight: "regular" },
-                  textColor: t.detail,
-                  textAlign: "left",
-                  maxLines: 1,
-                  minScale: 0.55
-                }
-              ]
-            },
-            {
-              type: "stack",
-              direction: "column",
-              flex: 0.95,
-              alignItems: "end",
-              gap: 0,
-              children: [
-                {
-                  type: "text",
-                  text: item.shortDate,
-                  font: { size: compact ? "caption1" : "footnote", weight: "medium" },
-                  textColor: t.date,
-                  textAlign: "right",
-                  maxLines: 1,
-                  minScale: 0.6
-                },
-                {
-                  type: "text",
-                  text: item.days === null ? "--d" : `${item.days}d`,
-                  font: { size: compact ? "title2" : "largeTitle", weight: "bold" },
-                  textColor: t.strong,
-                  textAlign: "right",
-                  maxLines: 1,
-                  minScale: 0.5
-                }
-              ]
-            }
-          ]
-        },
-        {
-          type: "spacer"
-        }
-      ]
-    };
-  }
+  return {
+    type: "stack",
+    direction: "column",
+    flex: 1,
+    padding: compact ? [8, 0, 8, 0] : [10, 0, 10, 0],
+    children: [
+      { type: "spacer" },
+
+      {
+        type: "stack",
+        direction: "row",
+        alignItems: "center",
+        gap: compact ? 8 : 12,
+        children: [
+
+          // 左侧区域
+          {
+            type: "stack",
+            direction: "column",
+            flex: 1.6,
+            gap: 0,
+            children: [
+
+              // NAME（保持左对齐，形成视觉锚点）
+              {
+                type: "text",
+                text: item.name,
+                font: { size: compact ? "headline" : "title3", weight: "bold" },
+                textColor: t.title,
+                textAlign: "left",
+                maxLines: 1,
+                minScale: 0.42
+              },
+
+              // DETAIL（动态居中行）
+              {
+                type: "stack",
+                direction: "row",
+                alignItems: "center",
+                children: [
+                  { type: "spacer" },
+
+                  {
+                    type: "text",
+                    text: item.detail || " ",
+                    font: { size: compact ? "caption1" : "footnote", weight: "regular" },
+                    textColor: t.detail,
+                    textAlign: "center",
+                    maxLines: 1,
+                    minScale: 0.55
+                  },
+
+                  { type: "spacer" }
+                ]
+              }
+
+            ]
+          },
+
+          // 右侧日期 + 倒计时
+          {
+            type: "stack",
+            direction: "column",
+            flex: 0.95,
+            alignItems: "end",
+            gap: 0,
+            children: [
+              {
+                type: "text",
+                text: item.shortDate,
+                font: { size: compact ? "caption1" : "footnote", weight: "medium" },
+                textColor: t.date,
+                textAlign: "right",
+                maxLines: 1,
+                minScale: 0.6
+              },
+              {
+                type: "text",
+                text: item.days === null ? "--d" : `${item.days}d`,
+                font: { size: compact ? "title2" : "largeTitle", weight: "bold" },
+                textColor: t.strong,
+                textAlign: "right",
+                maxLines: 1,
+                minScale: 0.5
+              }
+            ]
+          }
+
+        ]
+      },
+
+      { type: "spacer" }
+    ]
+  };
+}
 
   const items = getItems().slice(0, maxCountForFamily());
 
