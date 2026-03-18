@@ -1,821 +1,525 @@
-export default async function (ctx) {
+export default async function(ctx) {
+  const env = ctx.env || {};
   const family = ctx.widgetFamily || 'systemMedium';
 
-  const rawNames = String(ctx.env.name || '目标');
-  const rawDates = String(ctx.env.date || '');
-  const rawDetails = String(ctx.env.detail || '');
-
-  const items = normalizeGoals(rawNames, rawDates, rawDetails)
-    .map((item) => enrichGoal(item))
-    .filter(Boolean)
-    .sort((a, b) => a.targetMs - b.targetMs);
-
-  if (!items.length) {
-    return buildEmptyWidget(family);
+  // ========= 工具函数 =========
+  function pad(n) {
+    return String(n).padStart(2, '0');
   }
 
-  if (family === 'accessoryInline') {
-    return buildInline(items[0]);
+  function toDateOnly(date) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
   }
 
-  if (family === 'accessoryRectangular') {
-    return buildAccessoryRectangular(items[0]);
+  function parseDate(input) {
+    if (!input) return null;
+
+    // 支持 YYYY-MM-DD / YYYY/MM/DD / ISO
+    const normalized = String(input).trim().replace(/\./g, '-').replace(/\//g, '-');
+
+    // 纯日期按本地 00:00:00 处理，避免时区误差
+    const m = normalized.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (m) {
+      const y = Number(m[1]);
+      const mo = Number(m[2]) - 1;
+      const d = Number(m[3]);
+      const dt = new Date(y, mo, d);
+      return isNaN(dt.getTime()) ? null : dt;
+    }
+
+    const dt = new Date(normalized);
+    return isNaN(dt.getTime()) ? null : dt;
   }
 
-  if (family === 'systemSmall') {
-    return buildSmall(items);
+  function formatDate(dt) {
+    if (!dt) return 'Invalid date';
+    return `${dt.getFullYear()}.${pad(dt.getMonth() + 1)}.${pad(dt.getDate())}`;
   }
 
-  if (family === 'systemLarge' || family === 'systemExtraLarge') {
-    return buildLarge(items);
+  function diffDays(target) {
+    if (!target) return null;
+
+    const now = new Date();
+    const today = toDateOnly(now);
+    const targetDay = toDateOnly(target);
+
+    // 按“自然日”计算，到目标日当天显示 0 天
+    const ms = targetDay.getTime() - today.getTime();
+    const days = Math.ceil(ms / 86400000);
+
+    return days < 0 ? 0 : days;
   }
 
-  return buildMedium(items);
-}
-
-/* ---------------------------
- * 数据解析
- * --------------------------- */
-
-function splitEnvText(value) {
-  return String(value || '')
-    .split(/\s*\|\|\s*|\s*;;\s*|\n+/)
-    .map(s => s.trim())
-    .filter(Boolean);
-}
-
-function normalizeGoals(namesText, datesText, detailsText) {
-  const names = splitEnvText(namesText);
-  const dates = splitEnvText(datesText);
-  const details = splitEnvText(detailsText);
-
-  const len = Math.max(names.length, dates.length, details.length, 1);
-  const list = [];
-
-  for (let i = 0; i < len; i++) {
-    list.push({
-      name: names[i] || names[0] || `目标 ${i + 1}`,
-      date: dates[i] || dates[0] || '',
-      detail: details[i] || details[0] || '',
-    });
-  }
-
-  return list;
-}
-
-function enrichGoal(item) {
-  const parsed = parseDateFlexible(item.date);
-  if (!parsed) return null;
-
-  const now = Date.now();
-  const targetMs = parsed.getTime();
-  const diffMs = targetMs - now;
-  const diffDays = diffMs / 86400000;
-  const urgency = getUrgency(diffDays, diffMs);
-  const palette = getUrgencyPalette(urgency);
-
-  return {
-    ...item,
-    iso: parsed.toISOString(),
-    targetMs,
-    diffMs,
-    diffDays,
-    urgency,
-    palette,
-    dayLabel: formatDayLabel(diffDays, diffMs),
-    absoluteLabel: formatAbsolute(parsed),
-  };
-}
-
-function parseDateFlexible(input) {
-  const s = String(input || '').trim();
-  if (!s) return null;
-
-  // 兼容 YYYY-MM-DD / YYYY/MM/DD / YYYY-MM-DD HH:mm / ISO
-  const normalized = s
-    .replace(/\./g, '-')
-    .replace(/\//g, '-')
-    .replace(/\s+/, 'T');
-
-  const d = new Date(normalized);
-  if (!Number.isNaN(d.getTime())) return d;
-
-  // 尝试 YYYY-MM-DD 纯日期
-  const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (m) {
-    const y = Number(m[1]);
-    const mo = Number(m[2]) - 1;
-    const da = Number(m[3]);
-    const dt = new Date(y, mo, da, 23, 59, 59);
-    if (!Number.isNaN(dt.getTime())) return dt;
-  }
-
-  return null;
-}
-
-function getUrgency(diffDays, diffMs) {
-  if (diffMs < 0) return 'expired';
-  if (diffDays <= 1) return 'critical';
-  if (diffDays <= 3) return 'urgent';
-  if (diffDays <= 7) return 'soon';
-  if (diffDays <= 30) return 'normal';
-  return 'calm';
-}
-
-function formatDayLabel(diffDays, diffMs) {
-  if (diffMs < 0) {
-    const days = Math.ceil(Math.abs(diffDays));
-    return days <= 1 ? '已截止' : `已过 ${days} 天`;
-  }
-
-  if (diffDays < 1) {
-    const hours = Math.max(1, Math.ceil(diffMs / 3600000));
-    return `${hours} 小时内`;
-  }
-
-  const days = Math.ceil(diffDays);
-  return `剩余 ${days} 天`;
-}
-
-function formatAbsolute(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  const hh = String(date.getHours()).padStart(2, '0');
-  const mm = String(date.getMinutes()).padStart(2, '0');
-  return `${y}.${m}.${d} ${hh}:${mm}`;
-}
-
-/* ---------------------------
- * 色板：液态玻璃风格 + 紧急程度映射
- * --------------------------- */
-
-function getUrgencyPalette(level) {
-  const palettes = {
-    calm: {
-      accent: { light: '#4E8CFF', dark: '#7DB2FF' },
-      accentSoft: { light: '#CFE1FFAA', dark: '#244C88AA' },
-      glow: { light: '#EFF5FF', dark: '#16263F' },
-      gradA: { light: '#F7FBFF', dark: '#0E1420' },
-      gradB: { light: '#EAF3FF', dark: '#141D2F' },
-      gradC: { light: '#D9E9FF', dark: '#1A2940' },
-    },
-    normal: {
-      accent: { light: '#3E9E8A', dark: '#66CDB8' },
-      accentSoft: { light: '#D4F2ECAA', dark: '#204B43AA' },
-      glow: { light: '#F3FFFC', dark: '#10201C' },
-      gradA: { light: '#F7FFFD', dark: '#0D1715' },
-      gradB: { light: '#E7FAF4', dark: '#13221F' },
-      gradC: { light: '#D4F1E9', dark: '#17302B' },
-    },
-    soon: {
-      accent: { light: '#F2A93B', dark: '#FFC766' },
-      accentSoft: { light: '#FFE8C0AA', dark: '#5A3E13AA' },
-      glow: { light: '#FFF9EF', dark: '#261A08' },
-      gradA: { light: '#FFFDF8', dark: '#191308' },
-      gradB: { light: '#FFF4DE', dark: '#231A0E' },
-      gradC: { light: '#FFE8BE', dark: '#352611' },
-    },
-    urgent: {
-      accent: { light: '#FF7E45', dark: '#FFA27A' },
-      accentSoft: { light: '#FFD7C7AA', dark: '#5E2410AA' },
-      glow: { light: '#FFF4EF', dark: '#25120C' },
-      gradA: { light: '#FFF9F6', dark: '#170E0C' },
-      gradB: { light: '#FFE7DF', dark: '#24120F' },
-      gradC: { light: '#FFD2C2', dark: '#361915' },
-    },
-    critical: {
-      accent: { light: '#FF4D67', dark: '#FF7C90' },
-      accentSoft: { light: '#FFD2DAAA', dark: '#5A1320AA' },
-      glow: { light: '#FFF1F4', dark: '#260C12' },
-      gradA: { light: '#FFF7F9', dark: '#180A0E' },
-      gradB: { light: '#FFE3E9', dark: '#230E14' },
-      gradC: { light: '#FFC8D4', dark: '#32121B' },
-    },
-    expired: {
-      accent: { light: '#8D8D99', dark: '#B0B0BC' },
-      accentSoft: { light: '#E5E5EDAA', dark: '#353540AA' },
-      glow: { light: '#FAFAFC', dark: '#16161A' },
-      gradA: { light: '#FAFAFC', dark: '#101014' },
-      gradB: { light: '#EFEFF5', dark: '#171720' },
-      gradC: { light: '#E1E1EA', dark: '#20202A' },
-    },
-  };
-  return palettes[level] || palettes.normal;
-}
-
-function baseText() {
-  return {
-    primary: { light: '#111318', dark: '#F5F7FB' },
-    secondary: { light: '#5E6675', dark: '#A7B0C1' },
-    weak: { light: '#7D8491', dark: '#7F8899' },
-    glassLine: { light: '#FFFFFFCC', dark: '#FFFFFF14' },
-    glassFill: { light: 'rgba(255,255,255,0.36)', dark: 'rgba(255,255,255,0.07)' },
-    glassFillStrong: { light: 'rgba(255,255,255,0.52)', dark: 'rgba(255,255,255,0.10)' },
-  };
-}
-
-/* ---------------------------
- * Widget builders
- * --------------------------- */
-
-function buildEmptyWidget(family) {
-  const t = baseText();
-
-  if (family === 'accessoryInline') {
+  function urgency(days) {
+    if (days === null) {
+      return {
+        accent: '#8C8475',
+        accentSoft: '#D8D1C4',
+        pillBg: '#F2EEE8',
+        line: '#D8CFC1',
+        icon: '#7E7468'
+      };
+    }
+    if (days <= 3) {
+      return {
+        accent: '#A43A2A',
+        accentSoft: '#E9C0B1',
+        pillBg: '#F8E7E1',
+        line: '#D9A595',
+        icon: '#A43A2A'
+      };
+    }
+    if (days <= 14) {
+      return {
+        accent: '#B06A2B',
+        accentSoft: '#E6CFB2',
+        pillBg: '#F7EFE4',
+        line: '#D7BB95',
+        icon: '#A36A32'
+      };
+    }
+    if (days <= 30) {
+      return {
+        accent: '#6F7C4B',
+        accentSoft: '#D7DFC2',
+        pillBg: '#EEF2E5',
+        line: '#BAC7A0',
+        icon: '#66734A'
+      };
+    }
     return {
-      type: 'widget',
-      children: [{
-        type: 'text',
-        text: '未设置目标',
-        font: { size: 'caption1', weight: 'medium' },
-        textColor: t.secondary,
-      }],
+      accent: '#5C6B86',
+      accentSoft: '#D4DCEA',
+      pillBg: '#EEF2F8',
+      line: '#BCC7D8',
+      icon: '#5C6B86'
     };
   }
 
-  return {
-    type: 'widget',
-    padding: 14,
-    backgroundGradient: {
-      type: 'linear',
-      colors: [
-        { light: '#F7F9FC', dark: '#0E1117' },
-        { light: '#EEF2F8', dark: '#131923' },
-        { light: '#E6ECF5', dark: '#18212E' },
-      ],
-      stops: [0, 0.56, 1],
-      startPoint: { x: 0, y: 0 },
-      endPoint: { x: 1, y: 1 },
-    },
-    children: [
-      {
-        type: 'text',
-        text: 'countdown',
-        font: { size: 'caption2', weight: 'medium' },
-        textColor: t.weak,
-        opacity: 0.8,
-      },
-      { type: 'spacer' },
-      {
-        type: 'text',
-        text: '未设置目标',
-        font: { size: 'headline', weight: 'semibold' },
-        textColor: t.primary,
-      },
-      {
-        type: 'text',
-        text: '请填写 env: name / date / detail',
-        font: { size: 'caption1' },
-        textColor: t.secondary,
-      },
-      { type: 'spacer' },
-    ],
-  };
-}
+  function getItems() {
+    const items = [];
+    for (let i = 1; i <= 20; i++) {
+      const name = env[`NAME${i}`];
+      const date = env[`DATE${i}`];
+      const detail = env[`DETAIL${i}`];
 
-function buildInline(goal) {
-  return {
-    type: 'widget',
-    children: [
-      {
-        type: 'text',
-        text: `${goal.name} · `,
-        font: { size: 'caption1', weight: 'semibold' },
-        textColor: goal.palette.accent,
-      },
-      {
-        type: 'date',
-        date: goal.iso,
-        format: goal.diffMs < 0 ? 'relative' : 'timer',
-        font: { size: 'caption1', weight: 'medium' },
-        textColor: baseText().secondary,
-      },
-    ],
-  };
-}
+      if (!name && !date && !detail) continue;
 
-function buildAccessoryRectangular(goal) {
-  const t = baseText();
-  return {
-    type: 'widget',
-    padding: [6, 8, 6, 8],
-    children: [
-      {
-        type: 'stack',
-        direction: 'column',
-        gap: 3,
-        children: [
-          {
-            type: 'stack',
-            direction: 'row',
-            alignItems: 'center',
-            children: [
-              {
-                type: 'text',
-                text: goal.name,
-                font: { size: 'caption1', weight: 'semibold' },
-                textColor: t.primary,
-                maxLines: 1,
-                minScale: 0.65,
-                flex: 1,
-              },
-              {
-                type: 'text',
-                text: goal.dayLabel,
-                font: { size: 'caption2', weight: 'medium' },
-                textColor: goal.palette.accent,
-                maxLines: 1,
-                minScale: 0.7,
-              },
-            ],
-          },
-          {
-            type: 'date',
-            date: goal.iso,
-            format: goal.diffMs < 0 ? 'relative' : 'timer',
-            font: { size: 'caption2', weight: 'medium' },
-            textColor: t.secondary,
-            maxLines: 1,
-          },
-        ],
-      },
-    ],
-  };
-}
+      const parsed = parseDate(date);
+      const days = diffDays(parsed);
 
-function buildSmall(items) {
-  const goal = items[0];
-  const t = baseText();
+      items.push({
+        index: i,
+        name: name || `Target ${i}`,
+        dateRaw: date || '',
+        date: parsed,
+        dateText: formatDate(parsed),
+        detail: detail || '',
+        days
+      });
+    }
 
-  return {
-    type: 'widget',
-    padding: 12,
-    backgroundGradient: glassBackground(goal.palette),
-    children: [
-      topLabel(),
-      { type: 'spacer', length: 6 },
-      {
-        type: 'stack',
-        direction: 'column',
-        gap: 8,
-        padding: 10,
-        backgroundColor: t.glassFill,
-        borderRadius: 18,
-        borderWidth: 1,
-        borderColor: t.glassLine,
-        shadowColor: goal.palette.accentSoft,
-        shadowRadius: 10,
-        shadowOffset: { x: 0, y: 3 },
-        children: [
-          {
-            type: 'text',
-            text: goal.name,
-            font: { size: 'headline', weight: 'bold' },
-            textColor: t.primary,
-            maxLines: 2,
-            minScale: 0.72,
-          },
-          {
-            type: 'text',
-            text: goal.detail || ' ',
-            font: { size: 'caption1' },
-            textColor: t.secondary,
-            maxLines: 2,
-            minScale: 0.7,
-          },
-          {
-            type: 'stack',
-            direction: 'row',
-            alignItems: 'end',
-            children: [
-              {
-                type: 'date',
-                date: goal.iso,
-                format: goal.diffMs < 0 ? 'relative' : 'timer',
-                font: { size: 'title3', weight: 'heavy' },
-                textColor: goal.palette.accent,
-                maxLines: 1,
-                minScale: 0.55,
-                flex: 1,
-              },
-            ],
-          },
-          {
-            type: 'text',
-            text: goal.absoluteLabel,
-            font: { size: 'caption2', weight: 'medium' },
-            textColor: t.weak,
-            maxLines: 1,
-          },
-        ],
-      },
-      { type: 'spacer' },
-    ],
-  };
-}
+    // 没传编号变量时，兼容单目标 NAME / DATE / DETAIL
+    if (items.length === 0 && (env.NAME || env.DATE || env.DETAIL)) {
+      const parsed = parseDate(env.DATE);
+      items.push({
+        index: 1,
+        name: env.NAME || 'Target',
+        dateRaw: env.DATE || '',
+        date: parsed,
+        dateText: formatDate(parsed),
+        detail: env.DETAIL || '',
+        days: diffDays(parsed)
+      });
+    }
 
-function buildMedium(items) {
-  const primary = items[0];
-  const secondary = items.slice(1, 3);
-  const t = baseText();
+    items.sort((a, b) => {
+      const ad = a.days === null ? Number.MAX_SAFE_INTEGER : a.days;
+      const bd = b.days === null ? Number.MAX_SAFE_INTEGER : b.days;
+      return ad - bd;
+    });
 
-  return {
-    type: 'widget',
-    padding: 14,
-    backgroundGradient: glassBackground(primary.palette),
-    children: [
-      topLabel(),
-      { type: 'spacer', length: 8 },
-      {
-        type: 'stack',
-        direction: 'row',
-        gap: 10,
-        children: [
-          buildHeroCard(primary, { compact: false, flex: 1.28 }),
-          buildSideList(secondary.length ? secondary : items.slice(0, 2), { flex: 0.92 }),
-        ],
-      },
-    ],
-  };
-}
+    return items;
+  }
 
-function buildLarge(items) {
-  const t = baseText();
-  const primary = items[0];
-  const list = items.slice(0, 5);
+  const items = getItems();
 
-  return {
-    type: 'widget',
-    padding: 16,
-    backgroundGradient: glassBackground(primary.palette),
-    children: [
-      topLabel(),
-      { type: 'spacer', length: 10 },
-      {
-        type: 'stack',
-        direction: 'row',
-        gap: 12,
-        children: [
-          buildHeroCard(primary, { compact: false, flex: 1.15, large: true }),
-          {
-            type: 'stack',
-            direction: 'column',
-            gap: 8,
-            flex: 0.95,
-            children: list.slice(1).map((goal, idx) => buildMiniCard(goal, idx >= 2)),
-          },
-        ],
-      },
-    ],
-  };
-}
+  function maxCountForFamily() {
+    switch (family) {
+      case 'systemSmall':
+        return 1;
+      case 'systemMedium':
+        return 2;
+      case 'systemLarge':
+      case 'systemExtraLarge':
+        return 4;
+      case 'accessoryRectangular':
+        return 1;
+      case 'accessoryCircular':
+        return 1;
+      case 'accessoryInline':
+        return 1;
+      default:
+        return 2;
+    }
+  }
 
-/* ---------------------------
- * 组件片段
- * --------------------------- */
+  const visible = items.slice(0, maxCountForFamily());
 
-function topLabel() {
-  const t = baseText();
-  return {
-    type: 'stack',
-    direction: 'row',
-    alignItems: 'center',
-    children: [
-      {
-        type: 'text',
-        text: 'countdown',
-        font: { size: 'caption2', weight: 'medium' },
-        textColor: t.weak,
-        opacity: 0.72,
-      },
-      { type: 'spacer' },
-      {
-        type: 'text',
-        text: '目标',
-        font: { size: 'caption2', weight: 'medium' },
-        textColor: t.weak,
-        opacity: 0.52,
-      },
-    ],
-  };
-}
+  function titleBlock() {
+    return {
+      type: 'stack',
+      direction: 'row',
+      alignItems: 'start',
+      children: [
+        {
+          type: 'text',
+          text: 'Countdown',
+          font: { size: 'caption2', weight: 'medium' },
+          textColor: '#7F7468',
+          opacity: 0.72,
+          maxLines: 1,
+          minScale: 0.8
+        },
+        { type: 'spacer' },
+        items.length > 0
+          ? {
+              type: 'text',
+              text: `${items.length} ITEMS`,
+              font: { size: 'caption2', weight: 'medium' },
+              textColor: '#9A8F82',
+              opacity: 0.7,
+              maxLines: 1,
+              minScale: 0.8
+            }
+          : {
+              type: 'text',
+              text: 'EMPTY',
+              font: { size: 'caption2', weight: 'medium' },
+              textColor: '#9A8F82',
+              opacity: 0.7,
+              maxLines: 1
+            }
+      ]
+    };
+  }
 
-function buildHeroCard(goal, options = {}) {
-  const t = baseText();
-  const compact = !!options.compact;
-
-  return {
-    type: 'stack',
-    direction: 'column',
-    gap: compact ? 7 : 9,
-    flex: options.flex || 1,
-    padding: compact ? 12 : 14,
-    backgroundColor: t.glassFillStrong,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: t.glassLine,
-    shadowColor: goal.palette.accentSoft,
-    shadowRadius: 16,
-    shadowOffset: { x: 0, y: 4 },
-    children: [
-      {
-        type: 'stack',
-        direction: 'row',
-        alignItems: 'start',
-        children: [
-          {
-            type: 'stack',
-            direction: 'column',
-            gap: 5,
-            flex: 1,
-            children: [
-              {
-                type: 'text',
-                text: goal.name,
-                font: { size: options.large ? 'title2' : 'title3', weight: 'bold' },
-                textColor: t.primary,
-                maxLines: 2,
-                minScale: 0.68,
-              },
-              {
-                type: 'text',
-                text: goal.detail || ' ',
-                font: { size: 'caption1' },
-                textColor: t.secondary,
-                maxLines: options.large ? 3 : 2,
-                minScale: 0.7,
-              },
-            ],
-          },
-          {
-            type: 'stack',
-            direction: 'column',
-            alignItems: 'end',
-            gap: 4,
-            children: [
-              urgencyPill(goal),
-            ],
-          },
-        ],
-      },
-      { type: 'spacer' },
-      {
-        type: 'stack',
-        direction: 'row',
-        alignItems: 'end',
-        children: [
-          {
-            type: 'stack',
-            direction: 'column',
-            gap: 4,
-            flex: 1,
-            children: [
-              {
-                type: 'text',
-                text: '截止',
-                font: { size: 'caption2', weight: 'medium' },
-                textColor: t.weak,
-              },
-              {
-                type: 'text',
-                text: goal.absoluteLabel,
-                font: { size: 'subheadline', weight: 'semibold' },
-                textColor: t.primary,
-                maxLines: 1,
-                minScale: 0.7,
-              },
-            ],
-          },
-          {
-            type: 'stack',
-            direction: 'column',
-            alignItems: 'end',
-            gap: 2,
-            children: [
-              {
-                type: 'date',
-                date: goal.iso,
-                format: goal.diffMs < 0 ? 'relative' : 'timer',
-                font: { size: options.large ? 'title2' : 'title3', weight: 'heavy' },
-                textColor: goal.palette.accent,
-                maxLines: 1,
-                minScale: 0.55,
-                shadowColor: goal.palette.accentSoft,
-                shadowRadius: 8,
-                shadowOffset: { x: 0, y: 1 },
-              },
-              {
-                type: 'text',
-                text: goal.dayLabel,
-                font: { size: 'caption1', weight: 'medium' },
-                textColor: goal.palette.accent,
-                maxLines: 1,
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  };
-}
-
-function buildSideList(items, options = {}) {
-  const t = baseText();
-  const list = items.slice(0, 3);
-
-  return {
-    type: 'stack',
-    direction: 'column',
-    gap: 8,
-    flex: options.flex || 1,
-    children: list.map((goal, index) => ({
+  function bigDayNumber(days, palette) {
+    return {
       type: 'stack',
       direction: 'column',
-      gap: 6,
-      padding: [10, 10, 10, 10],
-      backgroundColor: index === 0 ? t.glassFillStrong : t.glassFill,
+      alignItems: 'end',
+      gap: 0,
+      children: [
+        {
+          type: 'text',
+          text: days === null ? '--' : String(days),
+          font: { size: 'title1', weight: 'bold' },
+          textColor: palette.accent,
+          maxLines: 1,
+          minScale: 0.5
+        },
+        {
+          type: 'text',
+          text: 'days',
+          font: { size: 'caption1', weight: 'medium' },
+          textColor: '#7F7468',
+          opacity: 0.82,
+          maxLines: 1
+        }
+      ]
+    };
+  }
+
+  function itemCard(item, compact = false) {
+    const palette = urgency(item.days);
+
+    return {
+      type: 'stack',
+      direction: 'column',
+      gap: compact ? 6 : 8,
+      padding: compact ? [10, 12, 10, 12] : [12, 14, 12, 14],
+      backgroundColor: '#FFFDF9',
       borderRadius: 18,
       borderWidth: 1,
-      borderColor: t.glassLine,
+      borderColor: palette.line,
+      shadowColor: '#00000022',
+      shadowRadius: 8,
+      shadowOffset: { x: 0, y: 2 },
       children: [
         {
           type: 'stack',
           direction: 'row',
-          alignItems: 'center',
+          alignItems: 'start',
           children: [
             {
-              type: 'text',
-              text: goal.name,
-              font: { size: 'subheadline', weight: 'semibold' },
-              textColor: t.primary,
-              maxLines: 1,
-              minScale: 0.72,
+              type: 'stack',
+              direction: 'column',
+              gap: 3,
               flex: 1,
+              children: [
+                {
+                  type: 'text',
+                  text: item.name,
+                  font: { size: compact ? 'body' : 'headline', weight: 'semibold' },
+                  textColor: '#2F2721',
+                  maxLines: compact ? 1 : 2,
+                  minScale: 0.65
+                },
+                item.detail
+                  ? {
+                      type: 'text',
+                      text: item.detail,
+                      font: { size: 'caption1', weight: 'regular' },
+                      textColor: '#786D62',
+                      opacity: 0.92,
+                      maxLines: compact ? 1 : 2,
+                      minScale: 0.72
+                    }
+                  : {
+                      type: 'text',
+                      text: ' ',
+                      font: { size: 'caption1', weight: 'regular' },
+                      textColor: '#786D62',
+                      opacity: 0
+                    }
+              ]
             },
-            {
-              type: 'text',
-              text: shortUrgency(goal),
-              font: { size: 'caption2', weight: 'bold' },
-              textColor: goal.palette.accent,
-              maxLines: 1,
-            },
-          ],
-        },
-        {
-          type: 'text',
-          text: goal.detail || goal.absoluteLabel,
-          font: { size: 'caption2' },
-          textColor: t.secondary,
-          maxLines: 1,
-          minScale: 0.72,
+            { type: 'spacer', length: 8 },
+            bigDayNumber(item.days, palette)
+          ]
         },
         {
           type: 'stack',
           direction: 'row',
           alignItems: 'center',
+          gap: 6,
           children: [
             {
-              type: 'date',
-              date: goal.iso,
-              format: goal.diffMs < 0 ? 'relative' : 'timer',
-              font: { size: 'headline', weight: 'bold' },
-              textColor: goal.palette.accent,
-              maxLines: 1,
-              minScale: 0.58,
-              flex: 1,
+              type: 'image',
+              src: 'sf-symbol:calendar',
+              width: 13,
+              height: 13,
+              color: palette.icon
             },
             {
               type: 'text',
-              text: goal.dayLabel,
-              font: { size: 'caption2', weight: 'medium' },
-              textColor: baseText().weak,
+              text: item.dateText,
+              font: { size: 'caption1', weight: 'medium' },
+              textColor: '#5C5249',
               maxLines: 1,
+              minScale: 0.8
             },
-          ],
-        },
-      ],
-    })),
-  };
-}
-
-function buildMiniCard(goal, compact = false) {
-  const t = baseText();
-
-  return {
-    type: 'stack',
-    direction: 'column',
-    gap: compact ? 4 : 5,
-    padding: compact ? [8, 10, 8, 10] : [10, 10, 10, 10],
-    backgroundColor: t.glassFill,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: t.glassLine,
-    children: [
-      {
-        type: 'stack',
-        direction: 'row',
-        alignItems: 'center',
-        children: [
-          {
-            type: 'text',
-            text: goal.name,
-            font: { size: compact ? 'caption1' : 'subheadline', weight: 'semibold' },
-            textColor: t.primary,
-            maxLines: 1,
-            minScale: 0.72,
-            flex: 1,
-          },
-          {
-            type: 'text',
-            text: shortUrgency(goal),
-            font: { size: 'caption2', weight: 'bold' },
-            textColor: goal.palette.accent,
-            maxLines: 1,
-          },
-        ],
-      },
-      {
-        type: 'text',
-        text: goal.detail || goal.absoluteLabel,
-        font: { size: 'caption2' },
-        textColor: t.secondary,
-        maxLines: 1,
-        minScale: 0.7,
-      },
-      {
-        type: 'stack',
-        direction: 'row',
-        alignItems: 'end',
-        children: [
-          {
-            type: 'date',
-            date: goal.iso,
-            format: goal.diffMs < 0 ? 'relative' : 'timer',
-            font: { size: compact ? 'subheadline' : 'headline', weight: 'bold' },
-            textColor: goal.palette.accent,
-            maxLines: 1,
-            minScale: 0.56,
-            flex: 1,
-          },
-          {
-            type: 'text',
-            text: goal.dayLabel,
-            font: { size: 'caption2', weight: 'medium' },
-            textColor: t.weak,
-            maxLines: 1,
-          },
-        ],
-      },
-    ],
-  };
-}
-
-function urgencyPill(goal) {
-  return {
-    type: 'stack',
-    direction: 'row',
-    padding: [5, 9, 5, 9],
-    backgroundColor: goal.palette.accentSoft,
-    borderRadius: 999,
-    children: [
-      {
-        type: 'text',
-        text: shortUrgency(goal),
-        font: { size: 'caption2', weight: 'bold' },
-        textColor: goal.palette.accent,
-      },
-    ],
-  };
-}
-
-function shortUrgency(goal) {
-  switch (goal.urgency) {
-    case 'critical':
-      return '紧急';
-    case 'urgent':
-      return '临近';
-    case 'soon':
-      return '本周';
-    case 'normal':
-      return '进行中';
-    case 'expired':
-      return '已截止';
-    default:
-      return '充裕';
+            { type: 'spacer' },
+            {
+              type: 'stack',
+              padding: [4, 8, 4, 8],
+              backgroundColor: palette.pillBg,
+              borderRadius: 999,
+              children: [
+                {
+                  type: 'text',
+                  text:
+                    item.days === null
+                      ? 'Invalid'
+                      : item.days === 0
+                      ? 'Today'
+                      : item.days <= 3
+                      ? 'Urgent'
+                      : item.days <= 14
+                      ? 'Upcoming'
+                      : 'Planned',
+                  font: { size: 'caption2', weight: 'medium' },
+                  textColor: palette.accent,
+                  maxLines: 1
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    };
   }
-}
 
-function glassBackground(palette) {
+  function emptyState() {
+    return {
+      type: 'stack',
+      direction: 'column',
+      gap: 10,
+      flex: 1,
+      alignItems: 'center',
+      children: [
+        { type: 'spacer' },
+        {
+          type: 'image',
+          src: 'sf-symbol:calendar.badge.exclamationmark',
+          width: 26,
+          height: 26,
+          color: '#8A7E73'
+        },
+        {
+          type: 'text',
+          text: 'No target found',
+          font: { size: 'headline', weight: 'semibold' },
+          textColor: '#40362F',
+          maxLines: 1
+        },
+        {
+          type: 'text',
+          text: 'Use NAME1 / DATE1 / DETAIL1\nand continue with NAME2 / DATE2 / DETAIL2',
+          font: { size: 'caption1', weight: 'regular' },
+          textColor: '#7C7065',
+          textAlign: 'center',
+          maxLines: 3,
+          minScale: 0.75
+        },
+        { type: 'spacer' }
+      ]
+    };
+  }
+
+  // ========= 锁屏样式 =========
+  if (family === 'accessoryInline') {
+    const item = visible[0];
+    return {
+      type: 'widget',
+      children: [
+        {
+          type: 'text',
+          text: item
+            ? `${item.name} · ${item.days === null ? '--' : item.days}天`
+            : 'Countdown · 未配置'
+        }
+      ]
+    };
+  }
+
+  if (family === 'accessoryRectangular') {
+    const item = visible[0];
+    const palette = urgency(item?.days ?? null);
+
+    return {
+      type: 'widget',
+      padding: 10,
+      backgroundColor: '#F7F2EA',
+      children: item
+        ? [
+            {
+              type: 'stack',
+              direction: 'column',
+              gap: 4,
+              children: [
+                {
+                  type: 'text',
+                  text: item.name,
+                  font: { size: 'body', weight: 'semibold' },
+                  textColor: '#2F2721',
+                  maxLines: 1,
+                  minScale: 0.7
+                },
+                {
+                  type: 'stack',
+                  direction: 'row',
+                  children: [
+                    {
+                      type: 'text',
+                      text: `${item.days === null ? '--' : item.days}天`,
+                      font: { size: 'headline', weight: 'bold' },
+                      textColor: palette.accent,
+                      maxLines: 1
+                    },
+                    { type: 'spacer' },
+                    {
+                      type: 'text',
+                      text: item.dateText,
+                      font: { size: 'caption2', weight: 'medium' },
+                      textColor: '#786D62',
+                      maxLines: 1
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        : [
+            {
+              type: 'text',
+              text: '请配置 NAME1 / DATE1 / DETAIL1',
+              font: { size: 'caption1', weight: 'medium' },
+              textColor: '#5C5249',
+              maxLines: 2
+            }
+          ]
+    };
+  }
+
+  if (family === 'accessoryCircular') {
+    const item = visible[0];
+    const palette = urgency(item?.days ?? null);
+
+    return {
+      type: 'widget',
+      children: [
+        {
+          type: 'stack',
+          direction: 'column',
+          alignItems: 'center',
+          gap: 1,
+          children: [
+            {
+              type: 'text',
+              text: item ? String(item.days === null ? '--' : item.days) : '--',
+              font: { size: 'title3', weight: 'bold' },
+              textColor: palette.accent,
+              maxLines: 1,
+              minScale: 0.5
+            },
+            {
+              type: 'text',
+              text: 'days',
+              font: { size: 'caption2', weight: 'medium' },
+              textColor: '#7F7468',
+              maxLines: 1
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  // ========= 主屏样式 =========
+  const isSmall = family === 'systemSmall';
+  const isMedium = family === 'systemMedium';
+  const isLarge = family === 'systemLarge' || family === 'systemExtraLarge';
+
+  let contentChildren = [];
+
+  if (visible.length === 0) {
+    contentChildren = [emptyState()];
+  } else if (isSmall) {
+    contentChildren = [itemCard(visible[0], true)];
+  } else if (isMedium) {
+    contentChildren = visible.map((item) => itemCard(item, true));
+  } else if (isLarge) {
+    contentChildren = [];
+    for (let i = 0; i < visible.length; i++) {
+      contentChildren.push(itemCard(visible[i], false));
+    }
+  } else {
+    contentChildren = visible.map((item) => itemCard(item, true));
+  }
+
   return {
-    type: 'linear',
-    colors: [
-      palette.gradA,
-      palette.gradB,
-      palette.gradC,
-    ],
-    stops: [0, 0.62, 1],
-    startPoint: { x: 0, y: 0 },
-    endPoint: { x: 1, y: 1 },
+    type: 'widget',
+    padding: isLarge ? [14, 14, 14, 14] : [13, 13, 13, 13],
+    gap: isLarge ? 10 : 8,
+    backgroundGradient: {
+      colors: ['#F5EFE6', '#E8DDD0'],
+      locations: [0, 1]
+    },
+    children: [
+      titleBlock(),
+      ...contentChildren
+    ]
   };
 }
