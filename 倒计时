@@ -30,11 +30,11 @@ export default async function (ctx) {
   }
 
   function formatDate(dt) {
-    if (!dt) return "Invalid date";
+    if (!dt) return "Invalid";
     const y = dt.getFullYear();
     const m = String(dt.getMonth() + 1).padStart(2, "0");
     const d = String(dt.getDate()).padStart(2, "0");
-    return y + "." + m + "." + d;
+    return `${y}.${m}.${d}`;
   }
 
   function getItems() {
@@ -68,7 +68,7 @@ export default async function (ctx) {
       });
     }
 
-    list.sort(function (a, b) {
+    list.sort((a, b) => {
       const ad = a.days === null ? 999999 : a.days;
       const bd = b.days === null ? 999999 : b.days;
       return ad - bd;
@@ -85,144 +85,136 @@ export default async function (ctx) {
     return 2;
   }
 
-  function getAccent(days) {
+  // 仅用颜色区分紧急程度
+  function getTone(days) {
     if (days === null) {
       return {
-        strong: { light: "#7A6F63", dark: "#CBBEAF" },
-        softBg: { light: "#EFE7DD", dark: "#3A322B" },
-        line: { light: "#D8CCBF", dark: "#5B4E43" }
+        cardBg: { light: "#F6F1E8", dark: "#2C2621" },
+        accent: { light: "#8B8176", dark: "#C8B8A8" },
+        accentSoft: { light: "#E8DED2", dark: "#433930" },
+        numberBg: { light: "#EEE6DC", dark: "#3B322B" }
       };
     }
     if (days <= 3) {
       return {
-        strong: { light: "#9C3E2E", dark: "#F0A08D" },
-        softBg: { light: "#F5E3DE", dark: "#4A2C27" },
-        line: { light: "#DEB2A8", dark: "#7B4B42" }
+        cardBg: { light: "#F8ECE8", dark: "#342422" },
+        accent: { light: "#B14B3E", dark: "#F2A59A" },
+        accentSoft: { light: "#EEC9C1", dark: "#5A3934" },
+        numberBg: { light: "#F3DBD5", dark: "#4B2E2B" }
       };
     }
     if (days <= 14) {
       return {
-        strong: { light: "#A56A2A", dark: "#E2BE86" },
-        softBg: { light: "#F4EBDD", dark: "#473825" },
-        line: { light: "#D8C19D", dark: "#6F5A3C" }
+        cardBg: { light: "#F6EFE5", dark: "#32281F" },
+        accent: { light: "#B07A37", dark: "#E7C38C" },
+        accentSoft: { light: "#E8D6B8", dark: "#5A4830" },
+        numberBg: { light: "#F1E6D3", dark: "#473827" }
+      };
+    }
+    if (days <= 30) {
+      return {
+        cardBg: { light: "#EEF1F6", dark: "#252C35" },
+        accent: { light: "#6E7E98", dark: "#BDC9D9" },
+        accentSoft: { light: "#D5DDE8", dark: "#3D4755" },
+        numberBg: { light: "#E3EAF3", dark: "#323C49" }
       };
     }
     return {
-      strong: { light: "#5F6F86", dark: "#B9C7D8" },
-      softBg: { light: "#EAEFF5", dark: "#2E3743" },
-      line: { light: "#C5D0DC", dark: "#4C5969" }
+      cardBg: { light: "#F2F3F5", dark: "#25272B" },
+      accent: { light: "#7A8597", dark: "#C2CAD7" },
+      accentSoft: { light: "#DCE2EA", dark: "#3B414B" },
+      numberBg: { light: "#E9EDF2", dark: "#31353C" }
     };
   }
 
-  function badgeText(days) {
-    if (days === null) return "INVALID";
-    if (days === 0) return "TODAY";
-    if (days <= 3) return "URGENT";
-    if (days <= 14) return "UPCOMING";
-    return "PLANNED";
-  }
-
-  function card(item, compact) {
-    const accent = getAccent(item.days);
+  function makeCard(item, compact) {
+    const tone = getTone(item.days);
 
     return {
       type: "stack",
-      direction: "column",
-      gap: compact ? 6 : 8,
-      padding: compact ? [10, 12, 10, 12] : [12, 14, 12, 14],
-      backgroundColor: { light: "#FFFDF9", dark: "#221E1A" },
-      borderRadius: 18,
-      borderWidth: 1,
-      borderColor: accent.line,
+      direction: "row",
+      alignItems: "center",
+      padding: compact ? [12, 14, 12, 14] : [14, 16, 14, 16],
+      backgroundColor: tone.cardBg,
+      borderRadius: 20,
       children: [
         {
           type: "stack",
           direction: "row",
-          alignItems: "start",
+          alignItems: "center",
+          flex: 1,
           children: [
             {
               type: "stack",
+              direction: "row",
+              alignItems: "center",
+              gap: 6,
+              width: compact ? 92 : 108,
+              children: [
+                {
+                  type: "image",
+                  src: "sf-symbol:calendar",
+                  color: tone.accent,
+                  width: compact ? 13 : 14,
+                  height: compact ? 13 : 14
+                },
+                {
+                  type: "text",
+                  text: item.dateText,
+                  font: { size: compact ? "caption1" : "body", weight: "medium" },
+                  textColor: { light: "#5D544A", dark: "#D2C5B6" },
+                  maxLines: 1,
+                  minScale: 0.7
+                }
+              ]
+            },
+
+            {
+              type: "stack",
               direction: "column",
-              gap: 3,
               flex: 1,
+              alignItems: "center",
               children: [
                 {
                   type: "text",
                   text: item.name,
                   font: { size: compact ? "body" : "headline", weight: "semibold" },
-                  textColor: { light: "#2E2721", dark: "#F2E9DF" },
-                  maxLines: compact ? 1 : 2,
-                  minScale: 0.7
+                  textColor: { light: "#2E2721", dark: "#F3E9DE" },
+                  maxLines: 1,
+                  minScale: 0.65
                 },
                 {
                   type: "text",
                   text: item.detail || " ",
                   font: { size: "caption1", weight: "regular" },
-                  textColor: { light: "#786D62", dark: "#BEB1A4" },
-                  maxLines: compact ? 1 : 2,
+                  textColor: { light: "#827669", dark: "#BDAF9F" },
+                  maxLines: 1,
                   minScale: 0.7
                 }
               ]
             },
-            { type: "spacer", length: 8 },
+
             {
               type: "stack",
               direction: "column",
               alignItems: "end",
+              width: compact ? 52 : 64,
               children: [
                 {
-                  type: "text",
-                  text: item.days === null ? "--" : String(item.days),
-                  font: { size: compact ? "title2" : "title", weight: "bold" },
-                  textColor: accent.strong,
-                  maxLines: 1,
-                  minScale: 0.6
-                },
-                {
-                  type: "text",
-                  text: "days",
-                  font: { size: "caption2", weight: "medium" },
-                  textColor: { light: "#7A6F63", dark: "#B9AB9D" },
-                  maxLines: 1
-                }
-              ]
-            }
-          ]
-        },
-        {
-          type: "stack",
-          direction: "row",
-          alignItems: "center",
-          gap: 6,
-          children: [
-            {
-              type: "image",
-              src: "sf-symbol:calendar",
-              color: accent.strong,
-              width: 12,
-              height: 12
-            },
-            {
-              type: "text",
-              text: item.dateText,
-              font: { size: "caption1", weight: "medium" },
-              textColor: { light: "#5D534A", dark: "#D3C6B7" },
-              maxLines: 1,
-              minScale: 0.8
-            },
-            { type: "spacer" },
-            {
-              type: "stack",
-              padding: [4, 8, 4, 8],
-              backgroundColor: accent.softBg,
-              borderRadius: 999,
-              children: [
-                {
-                  type: "text",
-                  text: badgeText(item.days),
-                  font: { size: "caption2", weight: "medium" },
-                  textColor: accent.strong,
-                  maxLines: 1
+                  type: "stack",
+                  padding: compact ? [4, 9, 4, 9] : [5, 11, 5, 11],
+                  backgroundColor: tone.numberBg,
+                  borderRadius: 999,
+                  children: [
+                    {
+                      type: "text",
+                      text: item.days === null ? "--" : String(item.days),
+                      font: { size: compact ? "title3" : "title2", weight: "bold" },
+                      textColor: tone.accent,
+                      maxLines: 1,
+                      minScale: 0.55
+                    }
+                  ]
                 }
               ]
             }
@@ -234,17 +226,18 @@ export default async function (ctx) {
 
   const items = getItems();
   const visible = items.slice(0, getMaxCount(family));
+  const compact = family === "systemSmall" || family === "systemMedium";
 
   if (items.length === 0) {
     return {
       type: "widget",
-      padding: 16,
+      padding: 14,
       gap: 10,
       backgroundGradient: {
         type: "linear",
         colors: [
-          { light: "#F5EEE4", dark: "#2B241E" },
-          { light: "#E6D9C9", dark: "#1E1915" }
+          { light: "#F4EDE2", dark: "#2A231C" },
+          { light: "#E8DCCE", dark: "#1D1813" }
         ],
         stops: [0, 1],
         startPoint: { x: 0, y: 0 },
@@ -252,20 +245,25 @@ export default async function (ctx) {
       },
       children: [
         {
-          type: "text",
-          text: "Countdown",
-          font: { size: "caption2", weight: "medium" },
-          textColor: { light: "#8A7B6A", dark: "#BAAA99" },
-          maxLines: 1
+          type: "stack",
+          direction: "row",
+          children: [
+            {
+              type: "text",
+              text: "Countdown",
+              font: { size: "caption2", weight: "medium" },
+              textColor: { light: "#8C7D6C", dark: "#BAAA98" },
+              maxLines: 1
+            },
+            { type: "spacer" }
+          ]
         },
-        {
-          type: "spacer"
-        },
+        { type: "spacer" },
         {
           type: "text",
           text: "No target configured",
           font: { size: "headline", weight: "semibold" },
-          textColor: { light: "#332B24", dark: "#F0E5D9" },
+          textColor: { light: "#302821", dark: "#F0E5D9" },
           maxLines: 1,
           minScale: 0.7
         },
@@ -273,13 +271,10 @@ export default async function (ctx) {
           type: "text",
           text: "Use NAME1 / DATE1 / DETAIL1",
           font: { size: "caption1", weight: "regular" },
-          textColor: { light: "#786D62", dark: "#B7AA9C" },
-          maxLines: 2,
-          minScale: 0.7
+          textColor: { light: "#7B6E61", dark: "#B6A899" },
+          maxLines: 2
         },
-        {
-          type: "spacer"
-        }
+        { type: "spacer" }
       ]
     };
   }
@@ -294,15 +289,15 @@ export default async function (ctx) {
           type: "text",
           text: "Countdown",
           font: { size: "caption2", weight: "medium" },
-          textColor: { light: "#8A7B6A", dark: "#BAAA99" },
+          textColor: { light: "#8C7D6C", dark: "#BAAA98" },
           maxLines: 1
         },
         { type: "spacer" },
         {
           type: "text",
-          text: String(items.length) + " ITEMS",
+          text: `${items.length} ITEMS`,
           font: { size: "caption2", weight: "medium" },
-          textColor: { light: "#9A8B7B", dark: "#AE9E8E" },
+          textColor: { light: "#A09081", dark: "#AD9D8D" },
           maxLines: 1
         }
       ]
@@ -310,7 +305,7 @@ export default async function (ctx) {
   ];
 
   for (let i = 0; i < visible.length; i++) {
-    children.push(card(visible[i], family === "systemSmall" || family === "systemMedium"));
+    children.push(makeCard(visible[i], compact));
   }
 
   return {
@@ -320,8 +315,8 @@ export default async function (ctx) {
     backgroundGradient: {
       type: "linear",
       colors: [
-        { light: "#F5EEE4", dark: "#2B241E" },
-        { light: "#E6D9C9", dark: "#1E1915" }
+        { light: "#F4EDE2", dark: "#2A231C" },
+        { light: "#E8DCCE", dark: "#1D1813" }
       ],
       stops: [0, 1],
       startPoint: { x: 0, y: 0 },
