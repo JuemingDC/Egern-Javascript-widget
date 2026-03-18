@@ -90,49 +90,49 @@ export default async function (ctx) {
       return {
         line: { light: "#D8CCBE", dark: "#51473D" },
         date: { light: "#6F665D", dark: "#C7B9A9" },
-        title: { light: "#2E2721", dark: "#F2E8DC" },
+        title: { light: "#241E19", dark: "#F5EBE0" },
         detail: { light: "#85786B", dark: "#B9AA99" },
         num: { light: "#8F8376", dark: "#D9C7B2" },
-        numShadow: { light: "#E6DBCE", dark: "#3B3128" }
+        unit: { light: "#B7AA9B", dark: "#7A6A59" }
       };
     }
     if (days <= 3) {
       return {
         line: { light: "#E4B9AE", dark: "#6A4038" },
         date: { light: "#8E544A", dark: "#E6B2A8" },
-        title: { light: "#2E2721", dark: "#F2E8DC" },
+        title: { light: "#241E19", dark: "#F5EBE0" },
         detail: { light: "#8D6A63", dark: "#C9A39A" },
         num: { light: "#B3473B", dark: "#F1A399" },
-        numShadow: { light: "#F1D9D4", dark: "#4B2D29" }
+        unit: { light: "#D8AAA2", dark: "#7D4A42" }
       };
     }
     if (days <= 14) {
       return {
         line: { light: "#DFC9A6", dark: "#655038" },
         date: { light: "#8A6A38", dark: "#E5C68E" },
-        title: { light: "#2E2721", dark: "#F2E8DC" },
+        title: { light: "#241E19", dark: "#F5EBE0" },
         detail: { light: "#8A7862", dark: "#C8B392" },
         num: { light: "#AE7A2E", dark: "#E7C27E" },
-        numShadow: { light: "#F0E5D1", dark: "#473724" }
+        unit: { light: "#C8AE7E", dark: "#7D633D" }
       };
     }
     if (days <= 30) {
       return {
         line: { light: "#C8D3E2", dark: "#485466" },
         date: { light: "#64758E", dark: "#B6C5D7" },
-        title: { light: "#2E2721", dark: "#F2E8DC" },
+        title: { light: "#241E19", dark: "#F5EBE0" },
         detail: { light: "#7A7F8A", dark: "#AEB8C5" },
         num: { light: "#6E809B", dark: "#C0CCDB" },
-        numShadow: { light: "#E2E9F1", dark: "#303846" }
+        unit: { light: "#A1AFBF", dark: "#627086" }
       };
     }
     return {
       line: { light: "#D8DCE2", dark: "#474C55" },
       date: { light: "#737B89", dark: "#BBC3CF" },
-      title: { light: "#2E2721", dark: "#F2E8DC" },
+      title: { light: "#241E19", dark: "#F5EBE0" },
       detail: { light: "#8B9098", dark: "#AAB1BA" },
       num: { light: "#7E8796", dark: "#C6CDD7" },
-      numShadow: { light: "#E8ECF1", dark: "#2E3239" }
+      unit: { light: "#AEB5BF", dark: "#646A73" }
     };
   }
 
@@ -141,6 +141,33 @@ export default async function (ctx) {
       type: "stack",
       height: 1,
       backgroundColor: color
+    };
+  }
+
+  function dayMark(item, compact, tone) {
+    return {
+      type: "stack",
+      direction: "row",
+      alignItems: "start",
+      width: compact ? 60 : 76,
+      padding: [0, 0, compact ? 8 : 10, 0],
+      children: [
+        {
+          type: "text",
+          text: item.days === null ? "--" : String(item.days),
+          font: { size: compact ? "largeTitle" : "title", weight: "bold" },
+          textColor: tone.num,
+          maxLines: 1,
+          minScale: 0.5
+        },
+        {
+          type: "text",
+          text: "d",
+          font: { size: "caption2", weight: "semibold" },
+          textColor: tone.unit,
+          maxLines: 1
+        }
+      ]
     };
   }
 
@@ -182,21 +209,21 @@ export default async function (ctx) {
                 }
               ]
             },
-
             {
               type: "stack",
               direction: "column",
               flex: 1,
-              alignItems: "center",
+              alignItems: "start",
+              padding: [0, compact ? 6 : 8, 0, compact ? 6 : 8],
               children: [
                 {
                   type: "text",
                   text: item.name,
-                  font: { size: compact ? "body" : "headline", weight: "semibold" },
+                  font: { size: compact ? "headline" : "title3", weight: "bold" },
                   textColor: tone.title,
                   maxLines: 1,
-                  minScale: 0.65,
-                  textAlign: "center"
+                  minScale: 0.62,
+                  textAlign: "left"
                 },
                 {
                   type: "text",
@@ -205,34 +232,11 @@ export default async function (ctx) {
                   textColor: tone.detail,
                   maxLines: 1,
                   minScale: 0.7,
-                  textAlign: "center"
+                  textAlign: "left"
                 }
               ]
             },
-
-            {
-              type: "stack",
-              direction: "column",
-              alignItems: "end",
-              width: compact ? 56 : 70,
-              children: [
-                {
-                  type: "text",
-                  text: item.days === null ? "--" : String(item.days),
-                  font: { size: compact ? "largeTitle" : "title", weight: "bold" },
-                  textColor: tone.num,
-                  maxLines: 1,
-                  minScale: 0.5
-                },
-                {
-                  type: "text",
-                  text: "days",
-                  font: { size: "caption2", weight: "medium" },
-                  textColor: tone.numShadow,
-                  maxLines: 1
-                }
-              ]
-            }
+            dayMark(item, compact, tone)
           ]
         },
         makeDivider(tone.line)
