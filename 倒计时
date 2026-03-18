@@ -1,181 +1,247 @@
-/**
- * Apple-style Liquid Glass Countdown Widget
- * 逻辑修正：到目标“日历日”即显示 0 天
- */
+export default async function(ctx) {
+  const env = ctx.env || {}
 
-const env = ctx.env || {}
+  const TITLE = env.TITLE || "倒计时"
+  const TZ = Number(env.TZ_OFFSET || 8)
+  const MAX = Math.max(1, Math.min(Number(env.MAX_ITEMS || 4), 6))
 
-const TITLE = env.TITLE || "Countdown"
-const TZ = Number(env.TZ_OFFSET || 8)
-const MAX = Number(env.MAX_ITEMS || 4)
-
-function tzNow() {
-  const now = new Date()
-  const utc = now.getTime() + now.getTimezoneOffset() * 60000
-  return new Date(utc + TZ * 3600000)
-}
-
-function dayDiff(dateStr) {
-  if (!dateStr) return null
-
-  const now = tzNow()
-
-  const [y, m, d] = dateStr.split("-").map(Number)
-  const target = new Date(y, m - 1, d)
-
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-
-  const diff = Math.floor((target - today) / 86400000)
-
-  return diff < 0 ? 0 : diff
-}
-
-let items = []
-
-for (let i = 1; i <= 8; i++) {
-  const name = env[`NAME${i}`]
-  const date = env[`DATE${i}`]
-  const detail = env[`DETAIL${i}`]
-
-  if (!name || !date) continue
-
-  const left = dayDiff(date)
-
-  items.push({
-    name,
-    left,
-    detail
-  })
-}
-
-items = items
-  .sort((a, b) => a.left - b.left)
-  .slice(0, MAX)
-
-const scale = items.length >= 4 ? 0.9 : 1
-const gap = items.length >= 4 ? 8 : 12
-
-function progress(left) {
-  const total = 30
-  const p = 1 - left / total
-  return Math.max(0, Math.min(1, p))
-}
-
-function bar(p) {
-  return {
-    type: "stack",
-    height: 6 * scale,
-    background: {
-      light: "rgba(0,0,0,0.08)",
-      dark: "rgba(255,255,255,0.12)"
-    },
-    cornerRadius: 3,
-    children: [
-      {
-        type: "stack",
-        width: `${p * 100}%`,
-        backgroundGradient: {
-          colors: [
-            { light: "#5AC8FA", dark: "#64D2FF" },
-            { light: "#007AFF", dark: "#0A84FF" }
-          ],
-          startPoint: { x: 0, y: 0 },
-          endPoint: { x: 1, y: 0 }
-        },
-        cornerRadius: 3
-      }
-    ]
+  function getTzNow(offset) {
+    const now = new Date()
+    const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000
+    return new Date(utc + offset * 60 * 60 * 1000)
   }
-}
 
-return {
-  type: "widget",
-  padding: 14,
-  backgroundGradient: {
-    colors: [
-      { light: "#F2F2F7", dark: "#1C1C1E" },
-      { light: "#E5E5EA", dark: "#2C2C2E" }
-    ],
-    startPoint: { x: 0, y: 0 },
-    endPoint: { x: 1, y: 1 }
-  },
-  children: [
+  function calcDaysLeft(dateStr, offset) {
+    if (!dateStr) return null
+
+    const now = getTzNow(offset)
+    const parts = String(dateStr).split("-").map(Number)
+    if (parts.length !== 3 || parts.some(Number.isNaN)) return null
+
+    const [y, m, d] = parts
+
+    const todayStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+    const targetStart = Date.UTC(y, m - 1, d)
+
+    const diff = Math.floor((targetStart - todayStart) / 86400000)
+    return diff < 0 ? 0 : diff
+  }
+
+  function buildProgressBar(daysLeft) {
+    const horizon = 30
+    const ratio = Math.max(0, Math.min(1, 1 - daysLeft / horizon))
+
+    return {
+      type: "stack",
+      height: 6,
+      cornerRadius: 999,
+      backgroundColor: {
+        light: "#00000014",
+        dark: "#FFFFFF1A"
+      },
+      children: [
+        {
+          type: "stack",
+          width: `${Math.max(8, ratio * 100)}%`,
+          height: 6,
+          cornerRadius: 999,
+          backgroundColor: {
+            light: "#7FB3FF",
+            dark: "#5AA9FF"
+          }
+        }
+      ]
+    }
+  }
+
+  const items = []
+  for (let i = 1; i <= 6; i++) {
+    const name = env[`NAME${i}`]
+    const date = env[`DATE${i}`]
+    const detail = env[`DETAIL${i}`]
+
+    if (!name || !date) continue
+
+    const left = calcDaysLeft(date, TZ)
+    if (left === null) continue
+
+    items.push({
+      name: String(name),
+      date: String(date),
+      detail: detail ? String(detail) : "",
+      left
+    })
+  }
+
+  items.sort((a, b) => a.left - b.left)
+  const showItems = items.slice(0, MAX)
+
+  const compact = showItems.length >= 4
+  const nameFont = compact ? 15 : 17
+  const dayFont = compact ? 22 : 24
+  const metaFont = 12
+  const sectionGap = compact ? 8 : 10
+  const contentGap = compact ? 10 : 12
+
+  const children = [
     {
       type: "stack",
-      horizontal: true,
+      direction: "horizontal",
       children: [
         {
           type: "text",
           text: TITLE,
-          fontSize: 12,
-          fontWeight: 500,
-          color: {
-            light: "#8E8E93",
+          font: {
+            size: 12,
+            weight: "medium"
+          },
+          textColor: {
+            light: "#7C7C80",
             dark: "#8E8E93"
           }
         },
-        { type: "spacer" },
+        {
+          type: "spacer"
+        },
         {
           type: "date",
           style: "time",
-          fontSize: 12,
-          color: {
-            light: "#8E8E93",
+          font: {
+            size: 12,
+            weight: "regular"
+          },
+          textColor: {
+            light: "#9A9AA0",
             dark: "#8E8E93"
           }
         }
       ]
     },
-
-    { type: "spacer", size: 10 },
-
-    ...items.map(it => ({
-      type: "stack",
-      vertical: true,
-      gap: 4,
-      children: [
-        {
-          type: "stack",
-          horizontal: true,
-          children: [
-            {
-              type: "text",
-              text: it.name,
-              fontSize: 16 * scale,
-              fontWeight: 600,
-              color: {
-                light: "#000000",
-                dark: "#FFFFFF"
-              }
-            },
-            { type: "spacer" },
-            {
-              type: "text",
-              text: `${it.left}`,
-              fontSize: 20 * scale,
-              fontWeight: 700,
-              color: {
-                light: "#007AFF",
-                dark: "#0A84FF"
-              }
-            }
-          ]
-        },
-
-        bar(progress(it.left)),
-
-        it.detail
-          ? {
-              type: "text",
-              text: it.detail,
-              fontSize: 12 * scale,
-              color: {
-                light: "#8E8E93",
-                dark: "#8E8E93"
-              }
-            }
-          : null
-      ].filter(Boolean)
-    }))
+    {
+      type: "spacer",
+      length: 10
+    }
   ]
+
+  if (showItems.length === 0) {
+    children.push({
+      type: "text",
+      text: "请设置 NAME1 / DATE1 等环境变量",
+      font: {
+        size: 13,
+        weight: "regular"
+      },
+      textColor: {
+        light: "#8E8E93",
+        dark: "#8E8E93"
+      }
+    })
+  } else {
+    showItems.forEach((item, index) => {
+      children.push({
+        type: "stack",
+        direction: "vertical",
+        spacing: sectionGap,
+        children: [
+          {
+            type: "stack",
+            direction: "horizontal",
+            children: [
+              {
+                type: "text",
+                text: item.name,
+                font: {
+                  size: nameFont,
+                  weight: "semibold"
+                },
+                textColor: {
+                  light: "#111111",
+                  dark: "#FFFFFF"
+                }
+              },
+              {
+                type: "spacer"
+              },
+              {
+                type: "text",
+                text: `${item.left}`,
+                font: {
+                  size: dayFont,
+                  weight: "bold"
+                },
+                textColor: {
+                  light: "#3A7BFF",
+                  dark: "#63A4FF"
+                }
+              },
+              {
+                type: "text",
+                text: " 天",
+                font: {
+                  size: 13,
+                  weight: "medium"
+                },
+                textColor: {
+                  light: "#7C7C80",
+                  dark: "#8E8E93"
+                }
+              }
+            ]
+          },
+          buildProgressBar(item.left),
+          {
+            type: "stack",
+            direction: "horizontal",
+            children: [
+              {
+                type: "text",
+                text: item.date,
+                font: {
+                  size: metaFont,
+                  weight: "regular"
+                },
+                textColor: {
+                  light: "#8E8E93",
+                  dark: "#8E8E93"
+                }
+              },
+              {
+                type: "spacer"
+              },
+              {
+                type: "text",
+                text: item.detail || "",
+                font: {
+                  size: metaFont,
+                  weight: "regular"
+                },
+                textColor: {
+                  light: "#8E8E93",
+                  dark: "#8E8E93"
+                }
+              }
+            ]
+          }
+        ]
+      })
+
+      if (index !== showItems.length - 1) {
+        children.push({
+          type: "spacer",
+          length: contentGap
+        })
+      }
+    })
+  }
+
+  return {
+    type: "widget",
+    padding: 16,
+    spacing: 0,
+    backgroundColor: {
+      light: "#F2F2F7",
+      dark: "#1C1C1E"
+    },
+    children
+  }
 }
