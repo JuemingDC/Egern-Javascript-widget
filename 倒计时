@@ -2,6 +2,11 @@ export default async function(ctx) {
   const env = ctx.env || {};
   const family = ctx.widgetFamily || "systemMedium";
 
+  const isSmall = family === "systemSmall";
+  const isMedium = family === "systemMedium";
+  const isLarge = family === "systemLarge" || family === "systemExtraLarge";
+  const compact = isSmall || isMedium;
+
   function parseDate(input) {
     if (!input) return null;
     const text = String(input).trim().replace(/\//g, "-").replace(/\./g, "-");
@@ -130,7 +135,7 @@ export default async function(ctx) {
     };
   }
 
-  function itemBlock(item, compact) {
+  function itemBlock(item) {
     const t = tone(item.days);
 
     return {
@@ -146,11 +151,12 @@ export default async function(ctx) {
           type: "stack",
           direction: "row",
           alignItems: "center",
+          gap: compact ? 8 : 12,
           children: [
             {
               type: "stack",
               direction: "column",
-              flex: 1,
+              flex: 1.6,
               alignItems: "start",
               gap: 0,
               children: [
@@ -161,7 +167,7 @@ export default async function(ctx) {
                   textColor: t.title,
                   textAlign: "left",
                   maxLines: 1,
-                  minScale: 0.54
+                  minScale: 0.42
                 },
                 {
                   type: "text",
@@ -170,13 +176,14 @@ export default async function(ctx) {
                   textColor: t.detail,
                   textAlign: "left",
                   maxLines: 1,
-                  minScale: 0.68
+                  minScale: 0.55
                 }
               ]
             },
             {
               type: "stack",
               direction: "column",
+              flex: 0.95,
               alignItems: "end",
               gap: 0,
               children: [
@@ -187,16 +194,16 @@ export default async function(ctx) {
                   textColor: t.date,
                   textAlign: "right",
                   maxLines: 1,
-                  minScale: 0.72
+                  minScale: 0.6
                 },
                 {
                   type: "text",
                   text: item.days === null ? "--d" : `${item.days}d`,
-                  font: { size: compact ? "title3" : "title2", weight: "bold" },
+                  font: { size: compact ? "title2" : "largeTitle", weight: "bold" },
                   textColor: t.strong,
                   textAlign: "right",
                   maxLines: 1,
-                  minScale: 0.58
+                  minScale: 0.5
                 }
               ]
             }
@@ -210,12 +217,11 @@ export default async function(ctx) {
   }
 
   const items = getItems().slice(0, maxCountForFamily());
-  const compact = family === "systemSmall" || family === "systemMedium";
 
   if (items.length === 0) {
     return {
       type: "widget",
-      padding: 14,
+      padding: compact ? 12 : 14,
       gap: 8,
       backgroundGradient: {
         type: "linear",
@@ -291,7 +297,7 @@ export default async function(ctx) {
   ];
 
   for (let i = 0; i < items.length; i++) {
-    children.push(itemBlock(items[i], compact));
+    children.push(itemBlock(items[i]));
     if (i !== items.length - 1) {
       children.push({
         type: "stack",
@@ -303,7 +309,7 @@ export default async function(ctx) {
 
   return {
     type: "widget",
-    padding: family === "systemLarge" || family === "systemExtraLarge" ? 14 : 13,
+    padding: compact ? 12 : 14,
     gap: compact ? 2 : 4,
     backgroundGradient: {
       type: "linear",
