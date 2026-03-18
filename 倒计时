@@ -37,6 +37,13 @@ export default async function (ctx) {
     return `${y}.${m}.${d}`;
   }
 
+  function shortDate(dt) {
+    if (!dt) return "--.--";
+    const m = String(dt.getMonth() + 1).padStart(2, "0");
+    const d = String(dt.getDate()).padStart(2, "0");
+    return `${m}.${d}`;
+  }
+
   function getItems() {
     const list = [];
 
@@ -53,6 +60,7 @@ export default async function (ctx) {
         detail: detail || "",
         date: dt,
         dateText: formatDate(dt),
+        shortDate: shortDate(dt),
         days: getDaysLeft(dt),
       });
     }
@@ -64,6 +72,7 @@ export default async function (ctx) {
         detail: env.DETAIL || "",
         date: dt,
         dateText: formatDate(dt),
+        shortDate: shortDate(dt),
         days: getDaysLeft(dt),
       });
     }
@@ -91,12 +100,13 @@ export default async function (ctx) {
         line: { light: "#D8CCBE", dark: "#51473D" },
         title: { light: "#241E19", dark: "#F5EBE0" },
         detail: { light: "#8A7C6D", dark: "#B9AA99" },
-        dateMain: { light: "#6F665D", dark: "#C7B9A9" },
-        dateSub: { light: "#AA9B8B", dark: "#8E7C69" },
+        meta: { light: "#8B7D6E", dark: "#C7B9A8" },
+        metaSoft: { light: "#B4A696", dark: "#8C7C6B" },
         num: { light: "#8F8376", dark: "#D9C7B2" },
         unit: { light: "#B7AA9B", dark: "#7A6A59" },
-        track: { light: "#E7DCCF", dark: "#463A31" },
-        fill: { light: "#BDAE9D", dark: "#8D7B69" }
+        track: { light: "#E9DED2", dark: "#473B32" },
+        fill: { light: "#BCAD9B", dark: "#8E7B68" },
+        dot: { light: "#A79785", dark: "#BBA894" }
       };
     }
     if (days <= 3) {
@@ -104,12 +114,13 @@ export default async function (ctx) {
         line: { light: "#E4B9AE", dark: "#6A4038" },
         title: { light: "#241E19", dark: "#F5EBE0" },
         detail: { light: "#8D6A63", dark: "#C9A39A" },
-        dateMain: { light: "#8E544A", dark: "#E6B2A8" },
-        dateSub: { light: "#B2746B", dark: "#A36A62" },
+        meta: { light: "#9B5D52", dark: "#E6B2A8" },
+        metaSoft: { light: "#C2877D", dark: "#A86F67" },
         num: { light: "#B3473B", dark: "#F1A399" },
         unit: { light: "#D8AAA2", dark: "#7D4A42" },
         track: { light: "#F0D9D4", dark: "#4D2E2A" },
-        fill: { light: "#C85A4B", dark: "#E09A90" }
+        fill: { light: "#C85A4B", dark: "#E09A90" },
+        dot: { light: "#AF4C3F", dark: "#F0A195" }
       };
     }
     if (days <= 14) {
@@ -117,12 +128,13 @@ export default async function (ctx) {
         line: { light: "#DFC9A6", dark: "#655038" },
         title: { light: "#241E19", dark: "#F5EBE0" },
         detail: { light: "#8A7862", dark: "#C8B392" },
-        dateMain: { light: "#8A6A38", dark: "#E5C68E" },
-        dateSub: { light: "#A98A58", dark: "#B6935D" },
+        meta: { light: "#92703D", dark: "#E5C68E" },
+        metaSoft: { light: "#B18F5C", dark: "#B8935D" },
         num: { light: "#AE7A2E", dark: "#E7C27E" },
         unit: { light: "#C8AE7E", dark: "#7D633D" },
         track: { light: "#EEE2CC", dark: "#463824" },
-        fill: { light: "#C18A38", dark: "#D7B16E" }
+        fill: { light: "#C18A38", dark: "#D7B16E" },
+        dot: { light: "#A8772E", dark: "#E2BC77" }
       };
     }
     if (days <= 30) {
@@ -130,32 +142,27 @@ export default async function (ctx) {
         line: { light: "#C8D3E2", dark: "#485466" },
         title: { light: "#241E19", dark: "#F5EBE0" },
         detail: { light: "#7A7F8A", dark: "#AEB8C5" },
-        dateMain: { light: "#64758E", dark: "#B6C5D7" },
-        dateSub: { light: "#8998AE", dark: "#8DA0B7" },
+        meta: { light: "#6B7C96", dark: "#B6C5D7" },
+        metaSoft: { light: "#8E9EB5", dark: "#8FA3BA" },
         num: { light: "#6E809B", dark: "#C0CCDB" },
         unit: { light: "#A1AFBF", dark: "#627086" },
         track: { light: "#DFE6EF", dark: "#313B49" },
-        fill: { light: "#7E95B3", dark: "#B2C1D4" }
+        fill: { light: "#7E95B3", dark: "#B2C1D4" },
+        dot: { light: "#7087A5", dark: "#C3D0DF" }
       };
     }
     return {
       line: { light: "#D8DCE2", dark: "#474C55" },
       title: { light: "#241E19", dark: "#F5EBE0" },
       detail: { light: "#8B9098", dark: "#AAB1BA" },
-      dateMain: { light: "#737B89", dark: "#BBC3CF" },
-      dateSub: { light: "#9BA2AE", dark: "#8B929E" },
+      meta: { light: "#7E8694", dark: "#BBC3CF" },
+      metaSoft: { light: "#A0A7B3", dark: "#8E95A0" },
       num: { light: "#7E8796", dark: "#C6CDD7" },
       unit: { light: "#AEB5BF", dark: "#646A73" },
       track: { light: "#E6E9EE", dark: "#333741" },
-      fill: { light: "#98A2B1", dark: "#B6BEC9" }
+      fill: { light: "#98A2B1", dark: "#B6BEC9" },
+      dot: { light: "#8992A0", dark: "#C0C7D0" }
     };
-  }
-
-  function progressRatio(days) {
-    if (days === null) return 0.28;
-    if (days === 0) return 1;
-    const capped = days > 60 ? 60 : days;
-    return (60 - capped) / 60;
   }
 
   function relativeText(days) {
@@ -167,34 +174,11 @@ export default async function (ctx) {
     return "scheduled";
   }
 
-  function progressBar(days, tone, compact) {
-    const ratio = progressRatio(days);
-    const total = compact ? 44 : 54;
-    const fill = Math.max(6, Math.round(total * ratio));
-
-    return {
-      type: "stack",
-      direction: "column",
-      gap: 3,
-      children: [
-        {
-          type: "stack",
-          width: total,
-          height: 2,
-          backgroundColor: tone.track,
-          borderRadius: 999,
-          children: [
-            {
-              type: "stack",
-              width: fill,
-              height: 2,
-              backgroundColor: tone.fill,
-              borderRadius: 999
-            }
-          ]
-        }
-      ]
-    };
+  function progressRatio(days) {
+    if (days === null) return 0.28;
+    if (days === 0) return 1;
+    const capped = days > 60 ? 60 : days;
+    return (60 - capped) / 60;
   }
 
   function makeDivider(color) {
@@ -205,13 +189,52 @@ export default async function (ctx) {
     };
   }
 
+  function subscriptionStyleBar(days, tone, compact) {
+    const ratio = progressRatio(days);
+    const total = compact ? 84 : 104;
+    const fill = Math.max(12, Math.round(total * ratio));
+    const dotOffset = Math.max(10, Math.min(total - 8, fill));
+
+    return {
+      type: "stack",
+      direction: "column",
+      gap: 0,
+      children: [
+        {
+          type: "stack",
+          width: total,
+          height: 4,
+          backgroundColor: tone.track,
+          borderRadius: 999,
+          children: [
+            {
+              type: "stack",
+              width: fill,
+              height: 4,
+              backgroundColor: tone.fill,
+              borderRadius: 999
+            },
+            {
+              type: "stack",
+              width: 6,
+              height: 6,
+              backgroundColor: tone.dot,
+              borderRadius: 999,
+              offset: { x: dotOffset - 3, y: -1 }
+            }
+          ]
+        }
+      ]
+    };
+  }
+
   function dayMark(item, compact, tone) {
     return {
       type: "stack",
       direction: "row",
       alignItems: "start",
       justifyContent: "end",
-      width: compact ? 52 : 64,
+      width: compact ? 50 : 62,
       padding: [0, 0, compact ? 8 : 10, 0],
       children: [
         {
@@ -233,34 +256,25 @@ export default async function (ctx) {
     };
   }
 
-  function makeDateBlock(item, compact, tone) {
+  function makeTimelineBlock(item, compact, tone) {
     return {
       type: "stack",
       direction: "column",
-      width: compact ? 74 : 90,
+      width: compact ? 104 : 128,
       alignItems: "start",
       justifyContent: "center",
-      gap: 1,
+      gap: compact ? 4 : 5,
       children: [
         {
           type: "text",
-          text: item.dateText,
+          text: `${item.shortDate} · ${relativeText(item.days)}`,
           font: { size: compact ? "caption1" : "body", weight: "medium" },
-          textColor: tone.dateMain,
-          maxLines: 1,
-          minScale: 0.72,
-          textAlign: "left"
-        },
-        {
-          type: "text",
-          text: relativeText(item.days),
-          font: { size: "caption2", weight: "regular" },
-          textColor: tone.dateSub,
+          textColor: tone.meta,
           maxLines: 1,
           minScale: 0.68,
           textAlign: "left"
         },
-        progressBar(item.days, tone, compact)
+        subscriptionStyleBar(item.days, tone, compact)
       ]
     };
   }
@@ -280,7 +294,7 @@ export default async function (ctx) {
           font: { size: compact ? "headline" : "title3", weight: "bold" },
           textColor: tone.title,
           maxLines: 1,
-          minScale: 0.54,
+          minScale: 0.52,
           textAlign: "left"
         },
         {
@@ -303,7 +317,7 @@ export default async function (ctx) {
       type: "stack",
       direction: "column",
       gap: compact ? 8 : 10,
-      padding: compact ? [10, 2, 10, 0] : [12, 3, 12, 0],
+      padding: compact ? [10, 0, 10, 0] : [12, 1, 12, 1],
       children: [
         {
           type: "stack",
@@ -315,10 +329,10 @@ export default async function (ctx) {
               direction: "row",
               flex: 1,
               alignItems: "center",
-              gap: compact ? 8 : 10,
+              gap: compact ? 10 : 12,
               children: [
                 makeNameBlock(item, compact, tone),
-                makeDateBlock(item, compact, tone)
+                makeTimelineBlock(item, compact, tone)
               ]
             },
             dayMark(item, compact, tone)
