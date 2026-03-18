@@ -92,9 +92,10 @@ export default async function (ctx) {
         title: { light: "#241E19", dark: "#F5EBE0" },
         detail: { light: "#8A7C6D", dark: "#B9AA99" },
         date: { light: "#6F665D", dark: "#C7B9A9" },
-        num1: { light: "#A39586", dark: "#E1D1BE" },
-        num2: { light: "#7E7266", dark: "#C9B8A5" },
-        unit: { light: "#B7AA9B", dark: "#7A6A59" }
+        num: { light: "#8F8376", dark: "#D9C7B2" },
+        unit: { light: "#B7AA9B", dark: "#7A6A59" },
+        track: { light: "#E7DCCF", dark: "#463A31" },
+        fill: { light: "#BDAE9D", dark: "#8D7B69" }
       };
     }
     if (days <= 3) {
@@ -103,9 +104,10 @@ export default async function (ctx) {
         title: { light: "#241E19", dark: "#F5EBE0" },
         detail: { light: "#8D6A63", dark: "#C9A39A" },
         date: { light: "#8E544A", dark: "#E6B2A8" },
-        num1: { light: "#D86C5F", dark: "#FFC0B5" },
-        num2: { light: "#A63E33", dark: "#E98E82" },
-        unit: { light: "#D8AAA2", dark: "#7D4A42" }
+        num: { light: "#B3473B", dark: "#F1A399" },
+        unit: { light: "#D8AAA2", dark: "#7D4A42" },
+        track: { light: "#F0D9D4", dark: "#4D2E2A" },
+        fill: { light: "#C85A4B", dark: "#E09A90" }
       };
     }
     if (days <= 14) {
@@ -114,9 +116,10 @@ export default async function (ctx) {
         title: { light: "#241E19", dark: "#F5EBE0" },
         detail: { light: "#8A7862", dark: "#C8B392" },
         date: { light: "#8A6A38", dark: "#E5C68E" },
-        num1: { light: "#D7A454", dark: "#FFD48F" },
-        num2: { light: "#AA7426", dark: "#DEB66E" },
-        unit: { light: "#C8AE7E", dark: "#7D633D" }
+        num: { light: "#AE7A2E", dark: "#E7C27E" },
+        unit: { light: "#C8AE7E", dark: "#7D633D" },
+        track: { light: "#EEE2CC", dark: "#463824" },
+        fill: { light: "#C18A38", dark: "#D7B16E" }
       };
     }
     if (days <= 30) {
@@ -125,9 +128,10 @@ export default async function (ctx) {
         title: { light: "#241E19", dark: "#F5EBE0" },
         detail: { light: "#7A7F8A", dark: "#AEB8C5" },
         date: { light: "#64758E", dark: "#B6C5D7" },
-        num1: { light: "#93A8C5", dark: "#D6E1EE" },
-        num2: { light: "#637996", dark: "#AFC0D5" },
-        unit: { light: "#A1AFBF", dark: "#627086" }
+        num: { light: "#6E809B", dark: "#C0CCDB" },
+        unit: { light: "#A1AFBF", dark: "#627086" },
+        track: { light: "#DFE6EF", dark: "#313B49" },
+        fill: { light: "#7E95B3", dark: "#B2C1D4" }
       };
     }
     return {
@@ -135,9 +139,10 @@ export default async function (ctx) {
       title: { light: "#241E19", dark: "#F5EBE0" },
       detail: { light: "#8B9098", dark: "#AAB1BA" },
       date: { light: "#737B89", dark: "#BBC3CF" },
-      num1: { light: "#AAB2BE", dark: "#DCE2EA" },
-      num2: { light: "#7A8391", dark: "#BDC5D0" },
-      unit: { light: "#AEB5BF", dark: "#646A73" }
+      num: { light: "#7E8796", dark: "#C6CDD7" },
+      unit: { light: "#AEB5BF", dark: "#646A73" },
+      track: { light: "#E6E9EE", dark: "#333741" },
+      fill: { light: "#98A2B1", dark: "#B6BEC9" }
     };
   }
 
@@ -149,36 +154,58 @@ export default async function (ctx) {
     };
   }
 
+  function progressRatio(days) {
+    if (days === null) return 0.32;
+    if (days === 0) return 1;
+    const capped = days > 60 ? 60 : days;
+    return (60 - capped) / 60;
+  }
+
+  function progressBar(days, tone, compact) {
+    const ratio = progressRatio(days);
+    const total = compact ? 54 : 66;
+    const fill = Math.max(8, Math.round(total * ratio));
+
+    return {
+      type: "stack",
+      direction: "column",
+      gap: 0,
+      children: [
+        {
+          type: "stack",
+          width: total,
+          height: 3,
+          backgroundColor: tone.track,
+          borderRadius: 999,
+          children: [
+            {
+              type: "stack",
+              width: fill,
+              height: 3,
+              backgroundColor: tone.fill,
+              borderRadius: 999
+            }
+          ]
+        }
+      ]
+    };
+  }
+
   function dayMark(item, compact, tone) {
     return {
       type: "stack",
       direction: "row",
       alignItems: "start",
-      width: compact ? 72 : 86,
+      width: compact ? 54 : 68,
       padding: [0, 0, compact ? 8 : 10, 0],
       children: [
         {
-          type: "stack",
-          direction: "column",
-          gap: 0,
-          children: [
-            {
-              type: "text",
-              text: item.days === null ? "--" : String(item.days),
-              font: { size: compact ? "title" : "largeTitle", weight: "bold" },
-              textColor: tone.num1,
-              maxLines: 1,
-              minScale: 0.48
-            },
-            {
-              type: "text",
-              text: item.days === null ? "--" : String(item.days),
-              font: { size: compact ? "title" : "largeTitle", weight: "bold" },
-              textColor: tone.num2,
-              maxLines: 1,
-              minScale: 0.48
-            }
-          ]
+          type: "text",
+          text: item.days === null ? "--" : String(item.days),
+          font: { size: compact ? "largeTitle" : "title", weight: "bold" },
+          textColor: tone.num,
+          maxLines: 1,
+          minScale: 0.5
         },
         {
           type: "text",
@@ -198,7 +225,7 @@ export default async function (ctx) {
       type: "stack",
       direction: "column",
       gap: compact ? 8 : 10,
-      padding: compact ? [10, 6, 10, 6] : [12, 8, 12, 8],
+      padding: compact ? [10, 4, 10, 2] : [12, 6, 12, 2],
       children: [
         {
           type: "stack",
@@ -209,7 +236,7 @@ export default async function (ctx) {
               type: "stack",
               direction: "column",
               flex: 1,
-              padding: [0, compact ? 4 : 6, 0, 0],
+              padding: [0, 0, 0, 0],
               children: [
                 {
                   type: "stack",
@@ -220,18 +247,18 @@ export default async function (ctx) {
                       type: "stack",
                       direction: "column",
                       justifyContent: "center",
-                      alignItems: "center",
-                      flex: 1,
+                      alignItems: "start",
+                      width: compact ? 118 : 150,
                       gap: 0,
                       children: [
                         {
                           type: "text",
                           text: item.name,
-                          font: { size: compact ? "title3" : "title2", weight: "bold" },
+                          font: { size: compact ? "headline" : "title3", weight: "bold" },
                           textColor: tone.title,
                           maxLines: 1,
-                          minScale: 0.58,
-                          textAlign: "center"
+                          minScale: 0.56,
+                          textAlign: "left"
                         },
                         {
                           type: "text",
@@ -239,16 +266,17 @@ export default async function (ctx) {
                           font: { size: "caption1", weight: "regular" },
                           textColor: tone.detail,
                           maxLines: 1,
-                          minScale: 0.68,
-                          textAlign: "center"
+                          minScale: 0.66,
+                          textAlign: "left"
                         }
                       ]
                     },
                     {
                       type: "stack",
-                      width: compact ? 74 : 88,
+                      width: compact ? 64 : 78,
                       alignItems: "center",
                       justifyContent: "center",
+                      gap: 4,
                       children: [
                         {
                           type: "text",
@@ -256,9 +284,10 @@ export default async function (ctx) {
                           font: { size: compact ? "caption1" : "body", weight: "medium" },
                           textColor: tone.date,
                           maxLines: 1,
-                          minScale: 0.75,
+                          minScale: 0.72,
                           textAlign: "center"
-                        }
+                        },
+                        progressBar(item.days, tone, compact)
                       ]
                     }
                   ]
