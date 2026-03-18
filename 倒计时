@@ -29,14 +29,6 @@ export default async function (ctx) {
     return diff < 0 ? 0 : diff;
   }
 
-  function formatDate(dt) {
-    if (!dt) return "Invalid";
-    const y = dt.getFullYear();
-    const m = String(dt.getMonth() + 1).padStart(2, "0");
-    const d = String(dt.getDate()).padStart(2, "0");
-    return `${y}.${m}.${d}`;
-  }
-
   function shortDate(dt) {
     if (!dt) return "--.--";
     const m = String(dt.getMonth() + 1).padStart(2, "0");
@@ -59,7 +51,6 @@ export default async function (ctx) {
         name: name || ("Target " + i),
         detail: detail || "",
         date: dt,
-        dateText: formatDate(dt),
         shortDate: shortDate(dt),
         days: getDaysLeft(dt),
       });
@@ -71,7 +62,6 @@ export default async function (ctx) {
         name: env.NAME || "Target",
         detail: env.DETAIL || "",
         date: dt,
-        dateText: formatDate(dt),
         shortDate: shortDate(dt),
         days: getDaysLeft(dt),
       });
@@ -101,7 +91,6 @@ export default async function (ctx) {
         title: { light: "#241E19", dark: "#F5EBE0" },
         detail: { light: "#8A7C6D", dark: "#B9AA99" },
         meta: { light: "#8B7D6E", dark: "#C7B9A8" },
-        metaSoft: { light: "#B4A696", dark: "#8C7C6B" },
         num: { light: "#8F8376", dark: "#D9C7B2" },
         unit: { light: "#B7AA9B", dark: "#7A6A59" },
         track: { light: "#E9DED2", dark: "#473B32" },
@@ -115,7 +104,6 @@ export default async function (ctx) {
         title: { light: "#241E19", dark: "#F5EBE0" },
         detail: { light: "#8D6A63", dark: "#C9A39A" },
         meta: { light: "#9B5D52", dark: "#E6B2A8" },
-        metaSoft: { light: "#C2877D", dark: "#A86F67" },
         num: { light: "#B3473B", dark: "#F1A399" },
         unit: { light: "#D8AAA2", dark: "#7D4A42" },
         track: { light: "#F0D9D4", dark: "#4D2E2A" },
@@ -129,7 +117,6 @@ export default async function (ctx) {
         title: { light: "#241E19", dark: "#F5EBE0" },
         detail: { light: "#8A7862", dark: "#C8B392" },
         meta: { light: "#92703D", dark: "#E5C68E" },
-        metaSoft: { light: "#B18F5C", dark: "#B8935D" },
         num: { light: "#AE7A2E", dark: "#E7C27E" },
         unit: { light: "#C8AE7E", dark: "#7D633D" },
         track: { light: "#EEE2CC", dark: "#463824" },
@@ -143,7 +130,6 @@ export default async function (ctx) {
         title: { light: "#241E19", dark: "#F5EBE0" },
         detail: { light: "#7A7F8A", dark: "#AEB8C5" },
         meta: { light: "#6B7C96", dark: "#B6C5D7" },
-        metaSoft: { light: "#8E9EB5", dark: "#8FA3BA" },
         num: { light: "#6E809B", dark: "#C0CCDB" },
         unit: { light: "#A1AFBF", dark: "#627086" },
         track: { light: "#DFE6EF", dark: "#313B49" },
@@ -156,7 +142,6 @@ export default async function (ctx) {
       title: { light: "#241E19", dark: "#F5EBE0" },
       detail: { light: "#8B9098", dark: "#AAB1BA" },
       meta: { light: "#7E8694", dark: "#BBC3CF" },
-      metaSoft: { light: "#A0A7B3", dark: "#8E95A0" },
       num: { light: "#7E8796", dark: "#C6CDD7" },
       unit: { light: "#AEB5BF", dark: "#646A73" },
       track: { light: "#E6E9EE", dark: "#333741" },
@@ -191,7 +176,7 @@ export default async function (ctx) {
 
   function subscriptionStyleBar(days, tone, compact) {
     const ratio = progressRatio(days);
-    const total = compact ? 84 : 104;
+    const total = compact ? 82 : 98;
     const fill = Math.max(12, Math.round(total * ratio));
     const dotOffset = Math.max(10, Math.min(total - 8, fill));
 
@@ -228,57 +213,6 @@ export default async function (ctx) {
     };
   }
 
-  function dayMark(item, compact, tone) {
-    return {
-      type: "stack",
-      direction: "row",
-      alignItems: "start",
-      justifyContent: "end",
-      width: compact ? 50 : 62,
-      padding: [0, 0, compact ? 8 : 10, 0],
-      children: [
-        {
-          type: "text",
-          text: item.days === null ? "--" : String(item.days),
-          font: { size: compact ? "largeTitle" : "title", weight: "bold" },
-          textColor: tone.num,
-          maxLines: 1,
-          minScale: 0.48
-        },
-        {
-          type: "text",
-          text: "d",
-          font: { size: "caption2", weight: "semibold" },
-          textColor: tone.unit,
-          maxLines: 1
-        }
-      ]
-    };
-  }
-
-  function makeTimelineBlock(item, compact, tone) {
-    return {
-      type: "stack",
-      direction: "column",
-      width: compact ? 104 : 128,
-      alignItems: "start",
-      justifyContent: "center",
-      gap: compact ? 4 : 5,
-      children: [
-        {
-          type: "text",
-          text: `${item.shortDate} · ${relativeText(item.days)}`,
-          font: { size: compact ? "caption1" : "body", weight: "medium" },
-          textColor: tone.meta,
-          maxLines: 1,
-          minScale: 0.68,
-          textAlign: "left"
-        },
-        subscriptionStyleBar(item.days, tone, compact)
-      ]
-    };
-  }
-
   function makeNameBlock(item, compact, tone) {
     return {
       type: "stack",
@@ -310,6 +244,56 @@ export default async function (ctx) {
     };
   }
 
+  function makeTimelineBlock(item, compact, tone) {
+    return {
+      type: "stack",
+      direction: "column",
+      flex: 1,
+      alignItems: "start",
+      justifyContent: "center",
+      gap: compact ? 4 : 5,
+      children: [
+        {
+          type: "text",
+          text: `${item.shortDate} · ${relativeText(item.days)}`,
+          font: { size: compact ? "caption1" : "body", weight: "medium" },
+          textColor: tone.meta,
+          maxLines: 1,
+          minScale: 0.68,
+          textAlign: "left"
+        },
+        subscriptionStyleBar(item.days, tone, compact)
+      ]
+    };
+  }
+
+  function makeDaysBlock(item, compact, tone) {
+    return {
+      type: "stack",
+      direction: "row",
+      flex: 1,
+      alignItems: "start",
+      justifyContent: "end",
+      children: [
+        {
+          type: "text",
+          text: item.days === null ? "--" : String(item.days),
+          font: { size: compact ? "largeTitle" : "title", weight: "bold" },
+          textColor: tone.num,
+          maxLines: 1,
+          minScale: 0.48
+        },
+        {
+          type: "text",
+          text: "d",
+          font: { size: "caption2", weight: "semibold" },
+          textColor: tone.unit,
+          maxLines: 1
+        }
+      ]
+    };
+  }
+
   function makeCard(item, compact) {
     const tone = getTone(item.days);
 
@@ -317,7 +301,7 @@ export default async function (ctx) {
       type: "stack",
       direction: "column",
       gap: compact ? 8 : 10,
-      padding: compact ? [10, 0, 10, 0] : [12, 1, 12, 1],
+      padding: compact ? [10, 0, 10, 0] : [12, 0, 12, 0],
       children: [
         {
           type: "stack",
@@ -329,13 +313,27 @@ export default async function (ctx) {
               direction: "row",
               flex: 1,
               alignItems: "center",
-              gap: compact ? 10 : 12,
               children: [
-                makeNameBlock(item, compact, tone),
-                makeTimelineBlock(item, compact, tone)
+                {
+                  type: "stack",
+                  flex: 1,
+                  padding: [0, 2, 0, 0],
+                  children: [makeNameBlock(item, compact, tone)]
+                },
+                {
+                  type: "stack",
+                  flex: 1,
+                  padding: [0, 6, 0, 6],
+                  children: [makeTimelineBlock(item, compact, tone)]
+                },
+                {
+                  type: "stack",
+                  flex: 1,
+                  padding: [0, 0, compact ? 8 : 10, 0],
+                  children: [makeDaysBlock(item, compact, tone)]
+                }
               ]
-            },
-            dayMark(item, compact, tone)
+            }
           ]
         },
         makeDivider(tone.line)
