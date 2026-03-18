@@ -84,72 +84,6 @@ export default async function (ctx) {
     return 2;
   }
 
-  function getTone(days) {
-    if (days === null) {
-      return {
-        line: { light: "#D8CCBE", dark: "#51473D" },
-        title: { light: "#241E19", dark: "#F5EBE0" },
-        detail: { light: "#8A7C6D", dark: "#B9AA99" },
-        meta: { light: "#8B7D6E", dark: "#C7B9A8" },
-        num: { light: "#8F8376", dark: "#D9C7B2" },
-        unit: { light: "#B7AA9B", dark: "#7A6A59" },
-        track: { light: "#E9DED2", dark: "#473B32" },
-        fill: { light: "#BCAD9B", dark: "#8E7B68" },
-        dot: { light: "#A79785", dark: "#BBA894" }
-      };
-    }
-    if (days <= 3) {
-      return {
-        line: { light: "#E4B9AE", dark: "#6A4038" },
-        title: { light: "#241E19", dark: "#F5EBE0" },
-        detail: { light: "#8D6A63", dark: "#C9A39A" },
-        meta: { light: "#9B5D52", dark: "#E6B2A8" },
-        num: { light: "#B3473B", dark: "#F1A399" },
-        unit: { light: "#D8AAA2", dark: "#7D4A42" },
-        track: { light: "#F0D9D4", dark: "#4D2E2A" },
-        fill: { light: "#C85A4B", dark: "#E09A90" },
-        dot: { light: "#AF4C3F", dark: "#F0A195" }
-      };
-    }
-    if (days <= 14) {
-      return {
-        line: { light: "#DFC9A6", dark: "#655038" },
-        title: { light: "#241E19", dark: "#F5EBE0" },
-        detail: { light: "#8A7862", dark: "#C8B392" },
-        meta: { light: "#92703D", dark: "#E5C68E" },
-        num: { light: "#AE7A2E", dark: "#E7C27E" },
-        unit: { light: "#C8AE7E", dark: "#7D633D" },
-        track: { light: "#EEE2CC", dark: "#463824" },
-        fill: { light: "#C18A38", dark: "#D7B16E" },
-        dot: { light: "#A8772E", dark: "#E2BC77" }
-      };
-    }
-    if (days <= 30) {
-      return {
-        line: { light: "#C8D3E2", dark: "#485466" },
-        title: { light: "#241E19", dark: "#F5EBE0" },
-        detail: { light: "#7A7F8A", dark: "#AEB8C5" },
-        meta: { light: "#6B7C96", dark: "#B6C5D7" },
-        num: { light: "#6E809B", dark: "#C0CCDB" },
-        unit: { light: "#A1AFBF", dark: "#627086" },
-        track: { light: "#DFE6EF", dark: "#313B49" },
-        fill: { light: "#7E95B3", dark: "#B2C1D4" },
-        dot: { light: "#7087A5", dark: "#C3D0DF" }
-      };
-    }
-    return {
-      line: { light: "#D8DCE2", dark: "#474C55" },
-      title: { light: "#241E19", dark: "#F5EBE0" },
-      detail: { light: "#8B9098", dark: "#AAB1BA" },
-      meta: { light: "#7E8694", dark: "#BBC3CF" },
-      num: { light: "#7E8796", dark: "#C6CDD7" },
-      unit: { light: "#AEB5BF", dark: "#646A73" },
-      track: { light: "#E6E9EE", dark: "#333741" },
-      fill: { light: "#98A2B1", dark: "#B6BEC9" },
-      dot: { light: "#8992A0", dark: "#C0C7D0" }
-    };
-  }
-
   function relativeText(days) {
     if (days === null) return "pending";
     if (days === 0) return "today";
@@ -160,10 +94,71 @@ export default async function (ctx) {
   }
 
   function progressRatio(days) {
-    if (days === null) return 0.28;
+    if (days === null) return 0.2;
     if (days === 0) return 1;
     const capped = days > 60 ? 60 : days;
     return (60 - capped) / 60;
+  }
+
+  function getTone(days) {
+    if (days === null) {
+      return {
+        strong: { light: "#7F7367", dark: "#D7C5B3" },
+        text: { light: "#231D18", dark: "#F4E8DC" },
+        sub: { light: "#8A7B6D", dark: "#B9AA99" },
+        meta: { light: "#8E8173", dark: "#C8B9A7" },
+        track: { light: "#E8DED2", dark: "#463A31" },
+        fill: { light: "#BBAE9E", dark: "#8E7B68" },
+        dot: { light: "#A49482", dark: "#BDAA96" },
+        divider: { light: "#D8CCBE", dark: "#51473D" }
+      };
+    }
+    if (days <= 3) {
+      return {
+        strong: { light: "#B14A3D", dark: "#F1A79B" },
+        text: { light: "#231D18", dark: "#F4E8DC" },
+        sub: { light: "#966B64", dark: "#D0A59C" },
+        meta: { light: "#A55E52", dark: "#E7B4AA" },
+        track: { light: "#F0D9D4", dark: "#4D2E2A" },
+        fill: { light: "#C85A4B", dark: "#E09A90" },
+        dot: { light: "#AF4C3F", dark: "#F0A195" },
+        divider: { light: "#E4B9AE", dark: "#6A4038" }
+      };
+    }
+    if (days <= 14) {
+      return {
+        strong: { light: "#AD7A2F", dark: "#E6C27F" },
+        text: { light: "#231D18", dark: "#F4E8DC" },
+        sub: { light: "#8B7861", dark: "#C8B391" },
+        meta: { light: "#92703E", dark: "#E4C58C" },
+        track: { light: "#EEE2CC", dark: "#463824" },
+        fill: { light: "#C18A38", dark: "#D7B16E" },
+        dot: { light: "#A8772E", dark: "#E2BC77" },
+        divider: { light: "#DFC9A6", dark: "#655038" }
+      };
+    }
+    if (days <= 30) {
+      return {
+        strong: { light: "#6F819C", dark: "#C0CCDB" },
+        text: { light: "#231D18", dark: "#F4E8DC" },
+        sub: { light: "#7C808A", dark: "#AEB7C4" },
+        meta: { light: "#6C7D97", dark: "#B7C5D7" },
+        track: { light: "#DFE6EF", dark: "#313B49" },
+        fill: { light: "#7E95B3", dark: "#B2C1D4" },
+        dot: { light: "#7087A5", dark: "#C3D0DF" },
+        divider: { light: "#C8D3E2", dark: "#485466" }
+      };
+    }
+    return {
+      strong: { light: "#7E8796", dark: "#C6CDD7" },
+      text: { light: "#231D18", dark: "#F4E8DC" },
+      sub: { light: "#8B9098", dark: "#AAB1BA" },
+      meta: { light: "#7F8795", dark: "#BBC3CF" },
+      track: { light: "#E6E9EE", dark: "#333741" },
+      fill: { light: "#98A2B1", dark: "#B6BEC9" },
+      dot: { light: "#8992A0", dark: "#C0C7D0" },
+      divider: { light: "#D8DCE2", dark: "#474C55" }
+    };
   }
 
   function makeDivider(color) {
@@ -174,169 +169,121 @@ export default async function (ctx) {
     };
   }
 
-  function subscriptionStyleBar(days, tone, compact) {
+  function makeProgress(days, tone, compact) {
     const ratio = progressRatio(days);
-    const total = compact ? 82 : 98;
-    const fill = Math.max(12, Math.round(total * ratio));
+    const total = compact ? 148 : 190;
+    const fill = Math.max(14, Math.round(total * ratio));
     const dotOffset = Math.max(10, Math.min(total - 8, fill));
 
     return {
       type: "stack",
-      direction: "column",
-      gap: 0,
+      width: total,
+      height: 4,
+      backgroundColor: tone.track,
+      borderRadius: 999,
       children: [
         {
           type: "stack",
-          width: total,
+          width: fill,
           height: 4,
-          backgroundColor: tone.track,
+          backgroundColor: tone.fill,
+          borderRadius: 999
+        },
+        {
+          type: "stack",
+          width: 6,
+          height: 6,
+          backgroundColor: tone.dot,
           borderRadius: 999,
-          children: [
-            {
-              type: "stack",
-              width: fill,
-              height: 4,
-              backgroundColor: tone.fill,
-              borderRadius: 999
-            },
-            {
-              type: "stack",
-              width: 6,
-              height: 6,
-              backgroundColor: tone.dot,
-              borderRadius: 999,
-              offset: { x: dotOffset - 3, y: -1 }
-            }
-          ]
+          offset: { x: dotOffset - 3, y: -1 }
         }
       ]
     };
   }
 
-  function makeNameBlock(item, compact, tone) {
-    return {
-      type: "stack",
-      direction: "column",
-      flex: 1,
-      alignItems: "start",
-      justifyContent: "center",
-      gap: 0,
-      children: [
-        {
-          type: "text",
-          text: item.name,
-          font: { size: compact ? "headline" : "title3", weight: "bold" },
-          textColor: tone.title,
-          maxLines: 1,
-          minScale: 0.52,
-          textAlign: "left"
-        },
-        {
-          type: "text",
-          text: item.detail || " ",
-          font: { size: "caption1", weight: "regular" },
-          textColor: tone.detail,
-          maxLines: 1,
-          minScale: 0.64,
-          textAlign: "left"
-        }
-      ]
-    };
-  }
-
-  function makeTimelineBlock(item, compact, tone) {
-    return {
-      type: "stack",
-      direction: "column",
-      flex: 1,
-      alignItems: "start",
-      justifyContent: "center",
-      gap: compact ? 4 : 5,
-      children: [
-        {
-          type: "text",
-          text: `${item.shortDate} · ${relativeText(item.days)}`,
-          font: { size: compact ? "caption1" : "body", weight: "medium" },
-          textColor: tone.meta,
-          maxLines: 1,
-          minScale: 0.68,
-          textAlign: "left"
-        },
-        subscriptionStyleBar(item.days, tone, compact)
-      ]
-    };
-  }
-
-  function makeDaysBlock(item, compact, tone) {
-    return {
-      type: "stack",
-      direction: "row",
-      flex: 1,
-      alignItems: "start",
-      justifyContent: "end",
-      children: [
-        {
-          type: "text",
-          text: item.days === null ? "--" : String(item.days),
-          font: { size: compact ? "largeTitle" : "title", weight: "bold" },
-          textColor: tone.num,
-          maxLines: 1,
-          minScale: 0.48
-        },
-        {
-          type: "text",
-          text: "d",
-          font: { size: "caption2", weight: "semibold" },
-          textColor: tone.unit,
-          maxLines: 1
-        }
-      ]
-    };
-  }
-
-  function makeCard(item, compact) {
+  function makeItem(item, compact) {
     const tone = getTone(item.days);
 
     return {
       type: "stack",
       direction: "column",
-      gap: compact ? 8 : 10,
-      padding: compact ? [10, 0, 10, 0] : [12, 0, 12, 0],
+      gap: compact ? 6 : 8,
+      padding: compact ? [8, 0, 8, 0] : [10, 0, 10, 0],
       children: [
         {
           type: "stack",
           direction: "row",
-          alignItems: "center",
+          alignItems: "start",
           children: [
             {
               type: "stack",
-              direction: "row",
+              direction: "column",
               flex: 1,
-              alignItems: "center",
+              gap: 0,
               children: [
                 {
-                  type: "stack",
-                  flex: 1,
-                  padding: [0, 2, 0, 0],
-                  children: [makeNameBlock(item, compact, tone)]
+                  type: "text",
+                  text: item.name,
+                  font: { size: compact ? "headline" : "title3", weight: "bold" },
+                  textColor: tone.text,
+                  maxLines: 1,
+                  minScale: 0.56,
+                  textAlign: "left"
                 },
                 {
-                  type: "stack",
-                  flex: 1,
-                  padding: [0, 6, 0, 6],
-                  children: [makeTimelineBlock(item, compact, tone)]
+                  type: "text",
+                  text: item.detail || " ",
+                  font: { size: "caption1", weight: "regular" },
+                  textColor: tone.sub,
+                  maxLines: 1,
+                  minScale: 0.68,
+                  textAlign: "left"
+                }
+              ]
+            },
+            {
+              type: "stack",
+              direction: "row",
+              alignItems: "start",
+              padding: [0, 0, compact ? 6 : 8, 0],
+              children: [
+                {
+                  type: "text",
+                  text: item.days === null ? "--" : String(item.days),
+                  font: { size: compact ? "largeTitle" : "title", weight: "bold" },
+                  textColor: tone.strong,
+                  maxLines: 1,
+                  minScale: 0.5
                 },
                 {
-                  type: "stack",
-                  flex: 1,
-                  padding: [0, 0, compact ? 8 : 10, 0],
-                  children: [makeDaysBlock(item, compact, tone)]
+                  type: "text",
+                  text: "d",
+                  font: { size: "caption2", weight: "semibold" },
+                  textColor: tone.meta,
+                  maxLines: 1
                 }
               ]
             }
           ]
         },
-        makeDivider(tone.line)
+        {
+          type: "stack",
+          direction: "row",
+          alignItems: "center",
+          gap: 8,
+          children: [
+            {
+              type: "text",
+              text: `${item.shortDate} · ${relativeText(item.days)}`,
+              font: { size: compact ? "caption1" : "body", weight: "medium" },
+              textColor: tone.meta,
+              maxLines: 1,
+              minScale: 0.72,
+              textAlign: "left"
+            }
+          ]
+        },
+        makeProgress(item.days, tone, compact)
       ]
     };
   }
@@ -424,13 +371,16 @@ export default async function (ctx) {
   ];
 
   for (let i = 0; i < visible.length; i++) {
-    children.push(makeCard(visible[i], compact));
+    children.push(makeItem(visible[i], compact));
+    if (i !== visible.length - 1) {
+      children.push(makeDivider(getTone(visible[i].days).divider));
+    }
   }
 
   return {
     type: "widget",
     padding: family === "systemLarge" || family === "systemExtraLarge" ? 14 : 13,
-    gap: family === "systemLarge" || family === "systemExtraLarge" ? 6 : 4,
+    gap: compact ? 2 : 4,
     backgroundGradient: {
       type: "linear",
       colors: [
