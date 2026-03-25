@@ -1,10 +1,10 @@
 /**
  * ==========================================
- * 代码名称: 实时网络信息面板（流沙金版）
- * 说明:
- * 1. 去掉多余框线，改为一体式信息排布
- * 2. 保持原有数据逻辑基本不变
- * 3. 视觉风格统一为暖米色 / 流沙金 / 奶油金
+ * 实时网络信息面板（流沙金·整齐版）
+ * 特点：
+ * 1. 去掉零碎小框
+ * 2. 改为严格两列网格 + 一行属性带
+ * 3. 保持原始数据逻辑基本不变
  * ==========================================
  */
 
@@ -47,7 +47,7 @@ export default async function (ctx) {
     return map[radio?.toUpperCase().replace(/\s+/g, "")] || radio || "";
   };
 
-  const ellipsize = (text, n = 26) => {
+  const clip = (text, n = 22) => {
     if (!text) return "—";
     const s = String(text);
     return s.length > n ? s.slice(0, n - 1) + "…" : s;
@@ -75,9 +75,15 @@ export default async function (ctx) {
       "";
 
     const isWifi = !!wifiSsid;
-    const netType = isWifi ? "无线局域网" : "蜂窝网络";
     const accessName = wifiSsid || getRadioType(cellularRadio) || "未连接";
+    const accessType = isWifi ? "无线局域网" : "蜂窝网络";
+
     const title = `${fmtISP(rawISP)} · ${accessName}`;
+
+    const routeText =
+      internalIP && gatewayIP && gatewayIP !== internalIP
+        ? `${internalIP} → ${gatewayIP}`
+        : internalIP || gatewayIP || "未连接";
 
     const localIP = localInfo.ip || "获取中";
     const localRegion = Array.isArray(localInfo.location)
@@ -103,57 +109,33 @@ export default async function (ctx) {
       else riskText = `低危 ${risk}`;
     }
 
-    const routeText =
-      internalIP && gatewayIP && gatewayIP !== internalIP
-        ? `${internalIP} → ${gatewayIP}`
-        : internalIP || gatewayIP || "未连接";
+    const LABEL = { light: "#B08D62", dark: "#D0B184" };
+    const TEXT = { light: "#4B3B2A", dark: "#F2E3C8" };
+    const SUB = { light: "#8F744F", dark: "#D6B98A" };
+    const LINE = { light: "rgba(176,141,98,0.16)", dark: "rgba(214,185,138,0.14)" };
 
-    const infoCell = (label, value, accent, align = "left") => ({
+    const gridCell = (label, value, align = "left") => ({
       type: "stack",
       direction: "column",
-      gap: 2,
       flex: 1,
+      gap: 3,
       children: [
         {
           type: "text",
           text: label,
-          font: { size: 11, weight: "semibold" },
-          textColor: accent,
+          font: { size: 10, weight: "semibold" },
+          textColor: LABEL,
           textAlign: align,
           maxLines: 1
         },
         {
           type: "text",
           text: value || "—",
-          font: { size: 15, weight: "bold" },
-          textColor: { light: "#544535", dark: "#F2E3C8" },
+          font: { size: 14, weight: "bold" },
+          textColor: TEXT,
           textAlign: align,
           maxLines: 1,
-          minScale: 0.65
-        }
-      ]
-    });
-
-    const metaCell = (label, value) => ({
-      type: "stack",
-      direction: "column",
-      gap: 1,
-      flex: 1,
-      children: [
-        {
-          type: "text",
-          text: label,
-          font: { size: 10, weight: "medium" },
-          textColor: { light: "#B2966E", dark: "#C9AE85" },
-          maxLines: 1
-        },
-        {
-          type: "text",
-          text: value || "—",
-          font: { size: 12, weight: "medium" },
-          textColor: { light: "#6F5A42", dark: "#E3D0B1" },
-          maxLines: 1,
-          minScale: 0.7
+          minScale: 0.72
         }
       ]
     });
@@ -165,10 +147,10 @@ export default async function (ctx) {
         type: "linear",
         colors: [
           { light: "#F8F2E8", dark: "#2A2118" },
-          { light: "#F2E8DA", dark: "#34281D" },
-          { light: "#EADCC8", dark: "#3D2F22" }
+          { light: "#F3E8D8", dark: "#34281D" },
+          { light: "#EBDCC8", dark: "#3D2F22" }
         ],
-        locations: [0, 0.58, 1],
+        locations: [0, 0.6, 1],
         startPoint: { x: 0, y: 0 },
         endPoint: { x: 1, y: 1 }
       },
@@ -187,45 +169,31 @@ export default async function (ctx) {
                 {
                   type: "text",
                   text: title,
-                  font: { size: 17, weight: "heavy" },
-                  textColor: { light: "#3D3023", dark: "#F5E8D2" },
+                  font: { size: 16, weight: "heavy" },
+                  textColor: TEXT,
                   maxLines: 1,
                   minScale: 0.68
                 },
                 {
                   type: "text",
-                  text: "Network Overview",
+                  text: "网络总览",
                   font: { size: 11, weight: "medium" },
-                  textColor: { light: "#A88B66", dark: "#C7AE87" },
+                  textColor: SUB,
                   maxLines: 1
                 }
               ]
             },
             {
               type: "stack",
-              direction: "row",
-              alignItems: "center",
-              gap: 4,
               padding: [5, 9, 5, 9],
-              backgroundColor: { light: "rgba(255,255,255,0.28)", dark: "rgba(255,255,255,0.08)" },
               cornerRadius: 999,
+              backgroundColor: { light: "rgba(255,255,255,0.18)", dark: "rgba(255,255,255,0.06)" },
               children: [
                 {
-                  type: "image",
-                  src: isWifi
-                    ? "sf-symbol:wifi"
-                    : cellularRadio
-                    ? "sf-symbol:antenna.radiowaves.left.and.right"
-                    : "sf-symbol:wifi.slash",
-                  color: { light: "#C79B4D", dark: "#E3C07A" },
-                  width: 11,
-                  height: 11
-                },
-                {
                   type: "text",
-                  text: netType,
+                  text: accessType,
                   font: { size: 11, weight: "bold" },
-                  textColor: { light: "#8C6A3E", dark: "#D7B988" },
+                  textColor: LABEL,
                   maxLines: 1
                 }
               ]
@@ -238,29 +206,29 @@ export default async function (ctx) {
         {
           type: "stack",
           direction: "column",
-          gap: 10,
+          gap: 8,
           children: [
             {
               type: "stack",
               direction: "row",
-              gap: 12,
+              gap: 14,
               children: [
-                infoCell("内网地址", ellipsize(routeText, 24), { light: "#C79B4D", dark: "#E2BC74" }, "left"),
-                infoCell("出口节点", ellipsize(nodeIP, 20), { light: "#A9792F", dark: "#D7AB63" }, "right")
+                gridCell("内网地址", clip(routeText, 22), "left"),
+                gridCell("出口节点", clip(nodeIP, 20), "right")
               ]
             },
             {
               type: "stack",
               height: 1,
-              backgroundColor: { light: "rgba(180,145,93,0.18)", dark: "rgba(214,182,130,0.16)" }
+              backgroundColor: LINE
             },
             {
               type: "stack",
               direction: "row",
-              gap: 12,
+              gap: 14,
               children: [
-                infoCell("本地归属", ellipsize(localRegion, 18), { light: "#BC9350", dark: "#E0BA7B" }, "left"),
-                infoCell("线路属性", `${nativeText} · ${riskText}`, { light: "#B88334", dark: "#E2B86B" }, "right")
+                gridCell("本地 IP", clip(localIP, 20), "left"),
+                gridCell("节点地区", clip(nodeRegion, 18), "right")
               ]
             }
           ]
@@ -270,18 +238,38 @@ export default async function (ctx) {
 
         {
           type: "stack",
-          padding: [8, 10, 8, 10],
-          backgroundColor: { light: "rgba(255,255,255,0.16)", dark: "rgba(255,255,255,0.05)" },
-          cornerRadius: 12,
+          direction: "column",
+          gap: 5,
+          padding: [8, 0, 0, 0],
           children: [
             {
               type: "stack",
+              height: 1,
+              backgroundColor: LINE
+            },
+            {
+              type: "stack",
               direction: "row",
-              gap: 10,
+              alignItems: "start",
+              gap: 8,
               children: [
-                metaCell("本地 IP", localIP),
-                metaCell("节点地区", ellipsize(nodeRegion, 16)),
-                metaCell("接入网络", accessName)
+                {
+                  type: "text",
+                  text: "线路属性",
+                  font: { size: 10, weight: "semibold" },
+                  textColor: LABEL,
+                  width: 52,
+                  maxLines: 1
+                },
+                {
+                  type: "text",
+                  text: `${nativeText} · ${riskText} · ${localRegion}`,
+                  font: { size: 12, weight: "medium" },
+                  textColor: TEXT,
+                  flex: 1,
+                  maxLines: 2,
+                  minScale: 0.78
+                }
               ]
             }
           ]
@@ -296,10 +284,10 @@ export default async function (ctx) {
         type: "linear",
         colors: [
           { light: "#F8F2E8", dark: "#2A2118" },
-          { light: "#F2E8DA", dark: "#34281D" },
-          { light: "#EADCC8", dark: "#3D2F22" }
+          { light: "#F3E8D8", dark: "#34281D" },
+          { light: "#EBDCC8", dark: "#3D2F22" }
         ],
-        locations: [0, 0.58, 1],
+        locations: [0, 0.6, 1],
         startPoint: { x: 0, y: 0 },
         endPoint: { x: 1, y: 1 }
       },
