@@ -1,7 +1,6 @@
 export default async function(ctx) {
   const env = ctx.env || {};
   const family = ctx.widgetFamily || "systemMedium";
-
   const isSmall = family === "systemSmall";
   const isMedium = family === "systemMedium";
   const isLarge = family === "systemLarge" || family === "systemExtraLarge";
@@ -26,12 +25,35 @@ export default async function(ctx) {
     return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
   }
 
-  function getDaysLeft(target) {
+  function getDayDiff(target) {
     if (!target) return null;
     const today = startOfDay(new Date());
     const targetDay = startOfDay(target);
-    const diff = Math.ceil((targetDay.getTime() - today.getTime()) / 86400000);
-    return diff < 0 ? 0 : diff;
+    return Math.round((targetDay.getTime() - today.getTime()) / 86400000);
+  }
+
+  function isExpiredAfterToday(target) {
+    if (!target) return false;
+    return getDayDiff(target) < 0;
+  }
+
+  function isToday(target) {
+    if (!target) return false;
+    return getDayDiff(target) === 0;
+  }
+
+  function getDisplayValue(target) {
+    if (!target) {
+      return { type: "unknown", value: "--d" };
+    }
+    const diff = getDayDiff(target);
+    if (diff < 0) {
+      return null; // 次日起隐藏
+    }
+    if (diff === 0) {
+      return { type: "today", value: "TODAY" };
+    }
+    return { type: "countdown", value: `${diff}d`, days: diff };
   }
 
   function shortDate(dt) {
@@ -52,29 +74,41 @@ export default async function(ctx) {
       if (!name && !date && !detail) continue;
 
       const dt = parseDate(date);
+      const display = getDisplayValue(dt);
+
+      if (dt && display === null) continue;
+
       list.push({
         name: name || `Target ${i}`,
         detail: detail || "",
         date: dt,
         shortDate: shortDate(dt),
-        days: getDaysLeft(dt)
+        display: display,
+        isToday: isToday(dt),
+        daysForTone: display && display.type === "countdown" ? display.days : (display && display.type === "today" ? 0 : null)
       });
     }
 
     if (list.length === 0 && (env.NAME || env.DATE || env.DETAIL)) {
       const dt = parseDate(env.DATE);
-      list.push({
-        name: env.NAME || "Target",
-        detail: env.DETAIL || "",
-        date: dt,
-        shortDate: shortDate(dt),
-        days: getDaysLeft(dt)
-      });
+      const display = getDisplayValue(dt);
+
+      if (!(dt && display === null)) {
+        list.push({
+          name: env.NAME || "Target",
+          detail: env.DETAIL || "",
+          date: dt,
+          shortDate: shortDate(dt),
+          display: display,
+          isToday: isToday(dt),
+          daysForTone: display && display.type === "countdown" ? display.days : (display && display.type === "today" ? 0 : null)
+        });
+      }
     }
 
     list.sort((a, b) => {
-      const ad = a.days === null ? 999999 : a.days;
-      const bd = b.days === null ? 999999 : b.days;
+      const ad = a.date ? startOfDay(a.date).getTime() : Number.MAX_SAFE_INTEGER;
+      const bd = b.date ? startOfDay(b.date).getTime() : Number.MAX_SAFE_INTEGER;
       return ad - bd;
     });
 
@@ -99,6 +133,7 @@ export default async function(ctx) {
         divider: { light: "#D8CCBE", dark: "#51473D" }
       };
     }
+
     if (days <= 3) {
       return {
         title: { light: "#231D18", dark: "#F4E8DC" },
@@ -108,6 +143,7 @@ export default async function(ctx) {
         divider: { light: "#E4B9AE", dark: "#6A4038" }
       };
     }
+
     if (days <= 14) {
       return {
         title: { light: "#231D18", dark: "#F4E8DC" },
@@ -117,6 +153,7 @@ export default async function(ctx) {
         divider: { light: "#DFC9A6", dark: "#655038" }
       };
     }
+
     if (days <= 30) {
       return {
         title: { light: "#231D18", dark: "#F4E8DC" },
@@ -126,6 +163,7 @@ export default async function(ctx) {
         divider: { light: "#C8D3E2", dark: "#485466" }
       };
     }
+
     return {
       title: { light: "#231D18", dark: "#F4E8DC" },
       detail: { light: "#8B9098", dark: "#AAB1BA" },
@@ -135,104 +173,96 @@ export default async function(ctx) {
     };
   }
 
+  function valueFont(item) {
+    if (item.display?.type === "today") {
+      return { size: compact ? "headline" : "title2", weight: "bold" };
+    }
+    return { size: compact ? "title2" : "largeTitle", weight: "bold" };
+  }
+
   function itemBlock(item) {
-  const t = tone(item.days);
-
-  return {
-    type: "stack",
-    direction: "column",
-    flex: 1,
-    padding: compact ? [8, 0, 8, 0] : [10, 0, 10, 0],
-    children: [
-      { type: "spacer" },
-
-      {
-        type: "stack",
-        direction: "row",
-        alignItems: "center",
-        gap: compact ? 8 : 12,
-        children: [
-
-          // 左侧区域
-          {
-            type: "stack",
-            direction: "column",
-            flex: 1.6,
-            gap: 0,
-            children: [
-
-              // NAME（保持左对齐，形成视觉锚点）
-              {
-                type: "text",
-                text: item.name,
-                font: { size: compact ? "headline" : "title3", weight: "bold" },
-                textColor: t.title,
-                textAlign: "left",
-                maxLines: 1,
-                minScale: 0.42
-              },
-
-              // DETAIL（动态居中行）
-              {
-                type: "stack",
-                direction: "row",
-                alignItems: "center",
-                children: [
-                  { type: "spacer" },
-
-                  {
-                    type: "text",
-                    text: item.detail || " ",
-                    font: { size: compact ? "caption1" : "footnote", weight: "regular" },
-                    textColor: t.detail,
-                    textAlign: "center",
-                    maxLines: 1,
-                    minScale: 0.55
-                  },
-
-                  { type: "spacer" }
-                ]
-              }
-
-            ]
-          },
-
-          // 右侧日期 + 倒计时
-          {
-            type: "stack",
-            direction: "column",
-            flex: 0.95,
-            alignItems: "end",
-            gap: 0,
-            children: [
-              {
-                type: "text",
-                text: item.shortDate,
-                font: { size: compact ? "caption1" : "footnote", weight: "medium" },
-                textColor: t.date,
-                textAlign: "right",
-                maxLines: 1,
-                minScale: 0.6
-              },
-              {
-                type: "text",
-                text: item.days === null ? "--d" : `${item.days}d`,
-                font: { size: compact ? "title2" : "largeTitle", weight: "bold" },
-                textColor: t.strong,
-                textAlign: "right",
-                maxLines: 1,
-                minScale: 0.5
-              }
-            ]
-          }
-
-        ]
-      },
-
-      { type: "spacer" }
-    ]
-  };
-}
+    const t = tone(item.daysForTone);
+    return {
+      type: "stack",
+      direction: "column",
+      flex: 1,
+      padding: compact ? [8, 0, 8, 0] : [10, 0, 10, 0],
+      children: [
+        { type: "spacer" },
+        {
+          type: "stack",
+          direction: "row",
+          alignItems: "center",
+          gap: compact ? 8 : 12,
+          children: [
+            {
+              type: "stack",
+              direction: "column",
+              flex: 1.6,
+              gap: 0,
+              children: [
+                {
+                  type: "text",
+                  text: item.name,
+                  font: { size: compact ? "headline" : "title3", weight: "bold" },
+                  textColor: t.title,
+                  textAlign: "left",
+                  maxLines: 1,
+                  minScale: 0.42
+                },
+                {
+                  type: "stack",
+                  direction: "row",
+                  alignItems: "center",
+                  children: [
+                    { type: "spacer" },
+                    {
+                      type: "text",
+                      text: item.detail || " ",
+                      font: { size: compact ? "caption1" : "footnote", weight: "regular" },
+                      textColor: t.detail,
+                      textAlign: "center",
+                      maxLines: 1,
+                      minScale: 0.55
+                    },
+                    { type: "spacer" }
+                  ]
+                }
+              ]
+            },
+            {
+              type: "stack",
+              direction: "column",
+              flex: 0.95,
+              alignItems: "end",
+              gap: 0,
+              children: [
+                {
+                  type: "text",
+                  text: item.shortDate,
+                  font: { size: compact ? "caption1" : "footnote", weight: "medium" },
+                  textColor: t.date,
+                  textAlign: "right",
+                  maxLines: 1,
+                  minScale: 0.6
+                },
+                {
+                  type: "text",
+                  text: item.display ? item.display.value : "--d",
+                  font: valueFont(item),
+                  textColor: t.strong,
+                  textAlign: "right",
+                  maxLines: 1,
+                  minScale: 0.5
+                }
+              ]
+            }
+          ]
+        },
+        { type: "spacer" }
+      ]
+    };
+  }
 
   const items = getItems().slice(0, maxCountForFamily());
 
@@ -265,9 +295,7 @@ export default async function(ctx) {
             { type: "spacer" }
           ]
         },
-        {
-          type: "spacer"
-        },
+        { type: "spacer" },
         {
           type: "text",
           text: "No target configured",
@@ -285,9 +313,7 @@ export default async function(ctx) {
           textAlign: "center",
           maxLines: 2
         },
-        {
-          type: "spacer"
-        }
+        { type: "spacer" }
       ]
     };
   }
@@ -320,7 +346,7 @@ export default async function(ctx) {
       children.push({
         type: "stack",
         height: 1,
-        backgroundColor: tone(items[i].days).divider
+        backgroundColor: tone(items[i].daysForTone).divider
       });
     }
   }
