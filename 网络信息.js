@@ -1,32 +1,14 @@
 /**
  * ==========================================
- * 代码名称: 实时网络信息面板（星空版）
- * 说明: 保持原有数据逻辑与主布局，仅重做背景与配色
+ * 代码名称: 实时网络信息面板（流沙金版）
+ * 说明:
+ * 1. 去掉多余框线，改为一体式信息排布
+ * 2. 保持原有数据逻辑基本不变
+ * 3. 视觉风格统一为暖米色 / 流沙金 / 奶油金
  * ==========================================
  */
 
-export default async function(ctx) {
-  // ===== 星空主题色 =====
-  const BG_COLORS = [
-    { light: '#EEF3FF', dark: '#060814' },
-    { light: '#DDE7FF', dark: '#0B1022' },
-    { light: '#EDE4FF', dark: '#15112E' }
-  ];
-
-  const STAR_GLOW = { light: 'rgba(255,255,255,0.55)', dark: 'rgba(255,255,255,0.10)' };
-  const CARD_BG = { light: 'rgba(255,255,255,0.58)', dark: 'rgba(255,255,255,0.06)' };
-  const CARD_BORDER = { light: 'rgba(255,255,255,0.78)', dark: 'rgba(255,255,255,0.09)' };
-
-  const TEXT_MAIN = { light: '#13203D', dark: '#F5F7FF' };
-  const TEXT_SUB = { light: '#40506F', dark: '#CCD6F6' };
-  const TEXT_MUTED = { light: '#6D7C9D', dark: '#93A3C8' };
-
-  const COLOR_INTERNAL = { light: '#4DD0A8', dark: '#63F0C3' }; // 内网：星际薄荷绿
-  const COLOR_LOCAL    = { light: '#5B8CFF', dark: '#7EB2FF' }; // 本地：星蓝
-  const COLOR_NODE     = { light: '#9A6BFF', dark: '#BC9CFF' }; // 节点：星云紫
-  const COLOR_ATTR     = { light: '#D6A63A', dark: '#FFD36B' }; // 属性：星砂金
-  const COLOR_MODE     = { light: '#7B61FF', dark: '#A58BFF' }; // 状态：霓紫
-
+export default async function (ctx) {
   const http = {
     get: async (url) => {
       try {
@@ -43,7 +25,7 @@ export default async function(ctx) {
   };
 
   const fmtISP = (isp) => {
-    if (!isp) return "未知";
+    if (!isp) return "未知网络";
     const s = isp.toLowerCase();
     const raw = isp.replace(/\s*\(中国\)\s*/, "").replace(/\s+/g, " ").trim();
     if (/(^|[\s-])(cmcc|cmnet|cmi|mobile)\b|移动/.test(s)) return "中国移动";
@@ -55,277 +37,252 @@ export default async function(ctx) {
 
   const getRadioType = (radio) => {
     const map = {
-      "GPRS": "2.5G",
-      "EDGE": "2.75G",
-      "WCDMA": "3G",
-      "LTE": "4G",
-      "NR": "5G",
-      "NRNSA": "5G"
+      GPRS: "2.5G",
+      EDGE: "2.75G",
+      WCDMA: "3G",
+      LTE: "4G",
+      NR: "5G",
+      NRNSA: "5G"
     };
     return map[radio?.toUpperCase().replace(/\s+/g, "")] || radio || "";
   };
 
+  const ellipsize = (text, n = 26) => {
+    if (!text) return "—";
+    const s = String(text);
+    return s.length > n ? s.slice(0, n - 1) + "…" : s;
+  };
+
   try {
     const d = ctx.device || {};
-    const [internalIP, gatewayIP, wifiSsid, cellularRadio] = [
-      d.ipv4?.address,
-      d.ipv4?.gateway,
-      d.wifi?.ssid,
-      d.cellular?.radio
-    ];
+    const internalIP = d.ipv4?.address || "";
+    const gatewayIP = d.ipv4?.gateway || "";
+    const wifiSsid = d.wifi?.ssid || "";
+    const cellularRadio = d.cellular?.radio || "";
 
     const [localInfo, nodeInfo, pureInfo] = await Promise.all([
-      http.get('https://myip.ipip.net/json').catch(() => ({})),
-      http.get('http://ip-api.com/json/?lang=zh-CN').catch(() => ({})),
-      http.get('https://my.ippure.com/v1/info').catch(() => ({}))
+      http.get("https://myip.ipip.net/json").catch(() => ({})),
+      http.get("http://ip-api.com/json/?lang=zh-CN").catch(() => ({})),
+      http.get("https://my.ippure.com/v1/info").catch(() => ({}))
     ]);
 
     let rawISP =
-      (Array.isArray(localInfo.location) ? localInfo.location[localInfo.location.length - 1] : "") ||
+      (Array.isArray(localInfo.location)
+        ? localInfo.location[localInfo.location.length - 1]
+        : "") ||
       nodeInfo?.isp ||
-      nodeInfo?.org;
+      nodeInfo?.org ||
+      "";
 
     const isWifi = !!wifiSsid;
-    let mainTitle = `${fmtISP(rawISP)} · ${wifiSsid || getRadioType(cellularRadio) || "未连接"}`;
+    const netType = isWifi ? "无线局域网" : "蜂窝网络";
+    const accessName = wifiSsid || getRadioType(cellularRadio) || "未连接";
+    const title = `${fmtISP(rawISP)} · ${accessName}`;
 
-    let r1Content = internalIP || "未连接";
-    if (gatewayIP && gatewayIP !== internalIP) r1Content += ` / ${gatewayIP}`;
+    const localIP = localInfo.ip || "获取中";
+    const localRegion = Array.isArray(localInfo.location)
+      ? localInfo.location.slice(0, 3).join("")
+      : "定位中";
 
-    let r2Content = localInfo.ip || "获取中...";
-    const locStr = Array.isArray(localInfo.location)
-      ? localInfo.location.slice(0, 3).join('').trim()
-      : '';
-    if (locStr) r2Content += ` / ${locStr}`;
-
-    const nodeIP = nodeInfo.query || nodeInfo.ip || "获取中...";
-    let r3Content = nodeIP;
-    const nodeLoc = `${nodeInfo.country || ''} ${nodeInfo.city || ''}`.trim();
-    if (nodeLoc) r3Content += ` / ${nodeLoc}`;
+    const nodeIP = nodeInfo.query || nodeInfo.ip || "获取中";
+    const nodeRegion = `${nodeInfo.country || ""} ${nodeInfo.city || ""}`.trim() || "定位中";
 
     const nativeText =
       pureInfo.isResidential === true
         ? "原生住宅"
-        : (pureInfo.isResidential === false ? "商业机房" : "未知属性");
+        : pureInfo.isResidential === false
+        ? "商业机房"
+        : "未知属性";
 
     const risk = pureInfo.fraudScore;
-    let riskTxt = "未知风险";
+    let riskText = "未知风险";
     if (risk !== undefined) {
-      if (risk >= 80) riskTxt = `极高危(${risk})`;
-      else if (risk >= 70) riskTxt = `高危(${risk})`;
-      else if (risk >= 40) riskTxt = `中危(${risk})`;
-      else riskTxt = `低危纯净(${risk})`;
+      if (risk >= 80) riskText = `极高危 ${risk}`;
+      else if (risk >= 70) riskText = `高危 ${risk}`;
+      else if (risk >= 40) riskText = `中危 ${risk}`;
+      else riskText = `低危 ${risk}`;
     }
 
-    const r4Content = `${nativeText} / ${riskTxt}`;
+    const routeText =
+      internalIP && gatewayIP && gatewayIP !== internalIP
+        ? `${internalIP} → ${gatewayIP}`
+        : internalIP || gatewayIP || "未连接";
 
-    const buildRow = (icon, color, label, content) => ({
-      type: 'stack',
-      direction: 'row',
-      alignItems: 'center',
-      gap: 8,
-      padding: [8, 10, 8, 10],
-      backgroundColor: CARD_BG,
-      borderColor: CARD_BORDER,
-      borderWidth: 1,
-      cornerRadius: 13,
+    const infoCell = (label, value, accent, align = "left") => ({
+      type: "stack",
+      direction: "column",
+      gap: 2,
+      flex: 1,
       children: [
         {
-          type: 'stack',
-          direction: 'row',
-          alignItems: 'center',
-          gap: 4,
-          width: 52,
-          children: [
-            { type: 'image', src: `sf-symbol:${icon}`, color, width: 13, height: 13 },
-            {
-              type: 'text',
-              text: label,
-              font: { size: 13, weight: 'heavy' },
-              textColor: color,
-              maxLines: 1
-            }
-          ]
+          type: "text",
+          text: label,
+          font: { size: 11, weight: "semibold" },
+          textColor: accent,
+          textAlign: align,
+          maxLines: 1
         },
         {
-          type: 'text',
-          text: content,
-          font: { size: 13, weight: 'medium' },
-          textColor: TEXT_SUB,
-          maxLines: 2,
-          flex: 1
+          type: "text",
+          text: value || "—",
+          font: { size: 15, weight: "bold" },
+          textColor: { light: "#544535", dark: "#F2E3C8" },
+          textAlign: align,
+          maxLines: 1,
+          minScale: 0.65
+        }
+      ]
+    });
+
+    const metaCell = (label, value) => ({
+      type: "stack",
+      direction: "column",
+      gap: 1,
+      flex: 1,
+      children: [
+        {
+          type: "text",
+          text: label,
+          font: { size: 10, weight: "medium" },
+          textColor: { light: "#B2966E", dark: "#C9AE85" },
+          maxLines: 1
+        },
+        {
+          type: "text",
+          text: value || "—",
+          font: { size: 12, weight: "medium" },
+          textColor: { light: "#6F5A42", dark: "#E3D0B1" },
+          maxLines: 1,
+          minScale: 0.7
         }
       ]
     });
 
     return {
-      type: 'widget',
-      padding: 12,
+      type: "widget",
+      padding: 14,
       backgroundGradient: {
-        type: 'linear',
-        colors: BG_COLORS,
-        locations: [0, 0.55, 1],
+        type: "linear",
+        colors: [
+          { light: "#F8F2E8", dark: "#2A2118" },
+          { light: "#F2E8DA", dark: "#34281D" },
+          { light: "#EADCC8", dark: "#3D2F22" }
+        ],
+        locations: [0, 0.58, 1],
         startPoint: { x: 0, y: 0 },
         endPoint: { x: 1, y: 1 }
       },
       children: [
-        // 顶部微星点
         {
-          type: 'stack',
-          direction: 'row',
+          type: "stack",
+          direction: "row",
+          alignItems: "center",
           children: [
             {
-              type: 'stack',
-              width: 4,
-              height: 4,
-              cornerRadius: 2,
-              backgroundColor: STAR_GLOW
-            },
-            { type: 'spacer' },
-            {
-              type: 'stack',
-              width: 3,
-              height: 3,
-              cornerRadius: 1.5,
-              backgroundColor: STAR_GLOW
-            },
-            { type: 'spacer', length: 18 },
-            {
-              type: 'stack',
-              width: 2,
-              height: 2,
-              cornerRadius: 1,
-              backgroundColor: STAR_GLOW
-            }
-          ]
-        },
-
-        { type: 'spacer', length: 4 },
-
-        {
-          type: 'stack',
-          direction: 'row',
-          alignItems: 'center',
-          gap: 8,
-          children: [
-            {
-              type: 'stack',
-              width: 28,
-              height: 28,
-              cornerRadius: 14,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: CARD_BG,
-              borderColor: CARD_BORDER,
-              borderWidth: 1,
-              children: [
-                {
-                  type: 'image',
-                  src: isWifi
-                    ? 'sf-symbol:wifi'
-                    : (cellularRadio
-                        ? 'sf-symbol:antenna.radiowaves.left.and.right'
-                        : 'sf-symbol:wifi.slash'),
-                  color: TEXT_MAIN,
-                  width: 15,
-                  height: 15
-                }
-              ]
-            },
-            {
-              type: 'stack',
-              direction: 'column',
+              type: "stack",
+              direction: "column",
               flex: 1,
               gap: 1,
               children: [
                 {
-                  type: 'text',
-                  text: mainTitle,
-                  font: { size: 15, weight: 'heavy' },
-                  textColor: TEXT_MAIN,
+                  type: "text",
+                  text: title,
+                  font: { size: 17, weight: "heavy" },
+                  textColor: { light: "#3D3023", dark: "#F5E8D2" },
                   maxLines: 1,
-                  minScale: 0.7
+                  minScale: 0.68
                 },
                 {
-                  type: 'text',
-                  text: 'Stellar Network Info',
-                  font: { size: 11, weight: 'medium' },
-                  textColor: TEXT_MUTED,
+                  type: "text",
+                  text: "Network Overview",
+                  font: { size: 11, weight: "medium" },
+                  textColor: { light: "#A88B66", dark: "#C7AE87" },
                   maxLines: 1
                 }
               ]
             },
             {
-              type: 'stack',
-              direction: 'row',
-              alignItems: 'center',
+              type: "stack",
+              direction: "row",
+              alignItems: "center",
               gap: 4,
-              padding: [5, 8, 5, 8],
-              backgroundColor: CARD_BG,
-              borderColor: CARD_BORDER,
-              borderWidth: 1,
+              padding: [5, 9, 5, 9],
+              backgroundColor: { light: "rgba(255,255,255,0.28)", dark: "rgba(255,255,255,0.08)" },
               cornerRadius: 999,
               children: [
                 {
-                  type: 'image',
-                  src: 'sf-symbol:sparkles',
-                  color: COLOR_MODE,
-                  width: 10,
-                  height: 10
+                  type: "image",
+                  src: isWifi
+                    ? "sf-symbol:wifi"
+                    : cellularRadio
+                    ? "sf-symbol:antenna.radiowaves.left.and.right"
+                    : "sf-symbol:wifi.slash",
+                  color: { light: "#C79B4D", dark: "#E3C07A" },
+                  width: 11,
+                  height: 11
                 },
                 {
-                  type: 'text',
-                  text: isWifi ? '无线局域网' : '蜂窝网络',
-                  font: { size: 11, weight: 'bold' },
-                  textColor: TEXT_MUTED
+                  type: "text",
+                  text: netType,
+                  font: { size: 11, weight: "bold" },
+                  textColor: { light: "#8C6A3E", dark: "#D7B988" },
+                  maxLines: 1
                 }
               ]
             }
           ]
         },
 
-        { type: 'spacer', length: 12 },
+        { type: "spacer", length: 10 },
 
         {
-          type: 'stack',
-          direction: 'column',
-          gap: 8,
+          type: "stack",
+          direction: "column",
+          gap: 10,
           children: [
-            buildRow('house.fill', COLOR_INTERNAL, '内网', r1Content),
-            buildRow('location.circle.fill', COLOR_LOCAL, '本地', r2Content),
-            buildRow('network', COLOR_NODE, '节点', r3Content),
-            buildRow('shield.lefthalf.filled', COLOR_ATTR, '属性', r4Content)
+            {
+              type: "stack",
+              direction: "row",
+              gap: 12,
+              children: [
+                infoCell("内网地址", ellipsize(routeText, 24), { light: "#C79B4D", dark: "#E2BC74" }, "left"),
+                infoCell("出口节点", ellipsize(nodeIP, 20), { light: "#A9792F", dark: "#D7AB63" }, "right")
+              ]
+            },
+            {
+              type: "stack",
+              height: 1,
+              backgroundColor: { light: "rgba(180,145,93,0.18)", dark: "rgba(214,182,130,0.16)" }
+            },
+            {
+              type: "stack",
+              direction: "row",
+              gap: 12,
+              children: [
+                infoCell("本地归属", ellipsize(localRegion, 18), { light: "#BC9350", dark: "#E0BA7B" }, "left"),
+                infoCell("线路属性", `${nativeText} · ${riskText}`, { light: "#B88334", dark: "#E2B86B" }, "right")
+              ]
+            }
           ]
         },
 
-        { type: 'spacer' },
+        { type: "spacer", length: 10 },
 
-        // 底部微星点
         {
-          type: 'stack',
-          direction: 'row',
+          type: "stack",
+          padding: [8, 10, 8, 10],
+          backgroundColor: { light: "rgba(255,255,255,0.16)", dark: "rgba(255,255,255,0.05)" },
+          cornerRadius: 12,
           children: [
             {
-              type: 'stack',
-              width: 2,
-              height: 2,
-              cornerRadius: 1,
-              backgroundColor: STAR_GLOW
-            },
-            { type: 'spacer', length: 24 },
-            {
-              type: 'stack',
-              width: 3,
-              height: 3,
-              cornerRadius: 1.5,
-              backgroundColor: STAR_GLOW
-            },
-            { type: 'spacer' },
-            {
-              type: 'stack',
-              width: 2,
-              height: 2,
-              cornerRadius: 1,
-              backgroundColor: STAR_GLOW
+              type: "stack",
+              direction: "row",
+              gap: 10,
+              children: [
+                metaCell("本地 IP", localIP),
+                metaCell("节点地区", ellipsize(nodeRegion, 16)),
+                metaCell("接入网络", accessName)
+              ]
             }
           ]
         }
@@ -333,31 +290,25 @@ export default async function(ctx) {
     };
   } catch (err) {
     return {
-      type: 'widget',
-      padding: 12,
+      type: "widget",
+      padding: 14,
       backgroundGradient: {
-        type: 'linear',
-        colors: BG_COLORS,
-        locations: [0, 0.55, 1],
+        type: "linear",
+        colors: [
+          { light: "#F8F2E8", dark: "#2A2118" },
+          { light: "#F2E8DA", dark: "#34281D" },
+          { light: "#EADCC8", dark: "#3D2F22" }
+        ],
+        locations: [0, 0.58, 1],
         startPoint: { x: 0, y: 0 },
         endPoint: { x: 1, y: 1 }
       },
       children: [
         {
-          type: 'stack',
-          padding: [10, 12, 10, 12],
-          backgroundColor: CARD_BG,
-          borderColor: CARD_BORDER,
-          borderWidth: 1,
-          cornerRadius: 13,
-          children: [
-            {
-              type: 'text',
-              text: '刷新中...',
-              font: { size: 13, weight: 'medium' },
-              textColor: TEXT_MUTED
-            }
-          ]
+          type: "text",
+          text: "网络信息加载中…",
+          font: { size: 14, weight: "medium" },
+          textColor: { light: "#8B6D49", dark: "#DABD90" }
         }
       ]
     };
